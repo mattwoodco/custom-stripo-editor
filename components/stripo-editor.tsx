@@ -123,18 +123,137 @@ export function StripoEditor({
 }: StripoEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const scriptLoadedRef = useRef(false);
+  const editorInitializedRef = useRef(false);
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const createdEmailIdRef = useRef<string | null>(null);
-  const stripoOpenedOnceRef = useRef(false);
+  const cleanupRef = useRef<(() => void) | null>(null);
+  const zoneCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const uiEditorCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    if (scriptLoadedRef.current || stripoOpenedOnceRef.current) return;
-    if (!containerRef.current) return; // Container not ready yet, will retry on next render
+    // Prevent double initialization (React StrictMode in dev)
+    if (editorInitializedRef.current) {
+      console.log("[StripoEditor] Already initialized, skipping...");
+      return;
+    }
+    
+    if (!containerRef.current) {
+      console.log("[StripoEditor] Container not ready, will retry...");
+      return;
+    }
 
     console.log("[StripoEditor] Starting initialization...");
     setLoadingState("loading");
     setErrorMessage(null);
+    editorInitializedRef.current = true;
+
+    // Load zone.js first if not already loaded
+    const loadZoneJs = (): Promise<void> => {
+      return new Promise((resolve, reject) => {
+        // Check if zone.js is already loaded
+        if (typeof window !== 'undefined' && (window as any).Zone) {
+          console.log("[StripoEditor] zone.js already loaded");
+          resolve();
+          return;
+        }
+
+        // Check if script tag already exists (from Next.js Script component or manually loaded)
+        const existingZoneScript = document.querySelector('script[src*="zone.js"], script#zone-js-script');
+        if (existingZoneScript) {
+          console.log("[StripoEditor] zone.js script tag exists, waiting for load...");
+          let attempts = 0;
+          const maxAttempts = 100; // 10 seconds
+          const checkInterval = setInterval(() => {
+            attempts++;
+            if ((window as any).Zone) {
+              clearInterval(checkInterval);
+              console.log("[StripoEditor] zone.js loaded");
+              resolve();
+            } else if (attempts >= maxAttempts) {
+              clearInterval(checkInterval);
+              console.warn("[StripoEditor] zone.js script exists but Zone not available after waiting");
+              // Don't reject - proceed anyway as zone.js might be optional
+              resolve();
+            }
+          }, 100);
+          return;
+        }
+
+        // Load zone.js
+        console.log("[StripoEditor] Loading zone.js...");
+        
+        // Ensure document.head is ready
+        if (!document.head) {
+          console.error("[StripoEditor] document.head not available");
+          reject(new Error("document.head not available"));
+          return;
+        }
+        
+        const script = document.createElement("script");
+        // Use unpkg CDN (better CORS support)
+        script.src = "https://unpkg.com/zone.js@0.14.3/dist/zone.min.js";
+        script.async = false; // Load synchronously to ensure it's available
+        
+        script.onload = () => {
+          console.log("[StripoEditor] zone.js script loaded, checking Zone object...");
+          // Give it a moment to initialize
+          setTimeout(() => {
+            if ((window as any).Zone) {
+              console.log("[StripoEditor] zone.js Zone object available");
+              resolve();
+            } else {
+              console.warn("[StripoEditor] zone.js loaded but Zone not available, retrying check...");
+              // Retry a few more times
+              let retries = 0;
+              const retryInterval = setInterval(() => {
+                retries++;
+                if ((window as any).Zone) {
+                  clearInterval(retryInterval);
+                  console.log("[StripoEditor] zone.js Zone object now available");
+                  resolve();
+                } else if (retries >= 20) {
+                  clearInterval(retryInterval);
+                  reject(new Error("zone.js loaded but Zone not available after retries"));
+                }
+              }, 100);
+            }
+          }, 200);
+        };
+        
+        script.onerror = (error) => {
+          console.error("[StripoEditor] Failed to load zone.js:", error);
+          console.error("[StripoEditor] Script src:", script.src);
+          
+          // Try fallback CDN
+          console.log("[StripoEditor] Trying fallback CDN (jsdelivr)...");
+          const fallbackScript = document.createElement("script");
+          fallbackScript.src = "https://cdn.jsdelivr.net/npm/zone.js@0.14.3/dist/zone.min.js";
+          fallbackScript.async = false;
+          
+          fallbackScript.onload = () => {
+            console.log("[StripoEditor] zone.js loaded from fallback CDN");
+            setTimeout(() => {
+              if ((window as any).Zone) {
+                resolve();
+              } else {
+                reject(new Error("zone.js loaded from fallback but Zone not available"));
+              }
+            }, 200);
+          };
+          
+          fallbackScript.onerror = () => {
+            console.error("[StripoEditor] Fallback CDN also failed");
+            reject(new Error("Failed to load zone.js from both CDNs"));
+          };
+          
+          document.head.appendChild(fallbackScript);
+        };
+        
+        // Append to head (simpler than insertBefore)
+        document.head.appendChild(script);
+      });
+    };
 
     const initStripoEditor = async () => {
       // Wait for container to be available
@@ -213,12 +332,28 @@ export function StripoEditor({
 
       // Initialize Stripo editor with correct config
       try {
-        window.UIEditor.initEditor(containerRef.current, {
+        const finalHtml = htmlToUse || providedHtml || DEFAULT_HTML;
+        const finalCss = providedCss || '';
+        
+        console.log("[StripoEditor] Initializing with:", {
+          emailId: emailIdToUse,
+          htmlLength: finalHtml.length,
+          cssLength: finalCss.length,
+          hasHtml: !!finalHtml,
+          htmlPreview: finalHtml.substring(0, 100) + '...',
+        });
+        
+        // Clear any existing content in container to prevent shadow DOM conflicts
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+
+        const editorInstance = window.UIEditor.initEditor(containerRef.current, {
           metadata: {
             emailId: emailIdToUse,
           },
-          html: htmlToUse || providedHtml || DEFAULT_HTML,
-          css: providedCss || '',
+          html: finalHtml,
+          css: finalCss,
           locale: 'en',
           onTokenRefreshRequest: (callback: (token: string) => void) => {
             Promise.resolve().then(async () => {
@@ -233,9 +368,15 @@ export function StripoEditor({
           messageSettingsEnabled: false,
           conditionsEnabled: false,
           syncModulesEnabled: false,
+          // Disable collaborative editing to prevent connection errors
+          coeditingEnabled: false,
           notifications: {
             info: console.info,
             error: (message, id, params) => {
+              // Suppress coediting connection errors (they're expected when coediting is disabled)
+              if (message && typeof message === 'string' && message.includes('connection')) {
+                return;
+              }
               console.error(message, id, params);
             },
             warn: console.warn,
@@ -247,52 +388,24 @@ export function StripoEditor({
         });
 
         console.log("[StripoEditor] Stripo editor initialized successfully");
-        stripoOpenedOnceRef.current = true;
-
-        // Check if editor content is actually rendering by looking for Stripo elements
-        const checkEditorContent = () => {
-          if (!containerRef.current) return false;
-          
-          // Check if Stripo has injected content into the container
-          const hasStripoContent = containerRef.current.children.length > 0 ||
-                                   containerRef.current.querySelector('iframe') !== null ||
-                                   containerRef.current.querySelector('[id*="stripo"]') !== null ||
-                                   containerRef.current.querySelector('[class*="stripo"]') !== null;
-          
-          return hasStripoContent;
-        };
-
-        // Hide loading overlay once editor content appears or after timeout
-        let contentCheckInterval: ReturnType<typeof setInterval> | null = null;
-        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
-
-        // Check for editor content every 200ms
-        contentCheckInterval = setInterval(() => {
-          if (checkEditorContent()) {
-            console.log("[StripoEditor] Editor content detected, hiding loading overlay");
-            if (contentCheckInterval) {
-              clearInterval(contentCheckInterval);
-              contentCheckInterval = null;
+        
+        // Store cleanup function if available
+        if (editorInstance && typeof editorInstance.destroy === 'function') {
+          cleanupRef.current = () => {
+            try {
+              editorInstance.destroy();
+            } catch (error) {
+              console.error("[StripoEditor] Error destroying editor:", error);
             }
-            if (fallbackTimeout) {
-              clearTimeout(fallbackTimeout);
-              fallbackTimeout = null;
-            }
-            setLoadingState("loaded");
-          }
-        }, 200);
+          };
+        }
 
-        // Fallback: hide loading after 3 seconds even if content check fails
-        fallbackTimeout = setTimeout(() => {
-          console.log("[StripoEditor] Fallback: hiding loading overlay after timeout");
-          if (contentCheckInterval) {
-            clearInterval(contentCheckInterval);
-            contentCheckInterval = null;
-          }
-          setLoadingState("loaded");
-        }, 3000);
+        // Hide loading overlay immediately after initialization
+        // Stripo will render the editor content asynchronously, but we don't need to wait for it
+        setLoadingState("loaded");
 
-        // Poll for StripoEditorApi to be available (for API features)
+        // Poll for StripoEditorApi to be available (for API features) - this is optional
+        // The editor UI should be visible even if API isn't ready yet
         let editorReadyCheckInterval: ReturnType<typeof setInterval> | null = null;
         editorReadyCheckInterval = setInterval(() => {
           const isReady = checkEditorReady();
@@ -306,13 +419,11 @@ export function StripoEditor({
           }
         }, 500); // Check every 500ms
 
-        // Cleanup intervals after 30 seconds
+        // Cleanup interval after 30 seconds
         setTimeout(() => {
-          if (contentCheckInterval) {
-            clearInterval(contentCheckInterval);
-          }
           if (editorReadyCheckInterval) {
             clearInterval(editorReadyCheckInterval);
+            editorReadyCheckInterval = null;
           }
         }, 30000);
       } catch (error) {
@@ -331,9 +442,46 @@ export function StripoEditor({
 
     // Load Stripo script if not already loaded
     const loadStripoScript = () => {
-      if (document.getElementById('UiEditorScript')) {
+
+      const existingScript = document.getElementById('UiEditorScript');
+      if (existingScript && window.UIEditor) {
         // Script already loaded, just initialize
+        console.log("[StripoEditor] Stripo script already loaded, initializing...");
         initStripoEditor();
+        return;
+      }
+
+      if (existingScript) {
+        // Script tag exists but UIEditor not ready yet, wait for it
+        console.log("[StripoEditor] Script tag exists, waiting for UIEditor...");
+        
+        // Clear any existing interval
+        if (uiEditorCheckIntervalRef.current) {
+          clearInterval(uiEditorCheckIntervalRef.current);
+        }
+        
+        uiEditorCheckIntervalRef.current = setInterval(() => {
+          if (window.UIEditor) {
+            if (uiEditorCheckIntervalRef.current) {
+              clearInterval(uiEditorCheckIntervalRef.current);
+              uiEditorCheckIntervalRef.current = null;
+            }
+            initStripoEditor();
+          }
+        }, 100);
+        
+        // Timeout after 10 seconds
+        setTimeout(() => {
+          if (uiEditorCheckIntervalRef.current) {
+            clearInterval(uiEditorCheckIntervalRef.current);
+            uiEditorCheckIntervalRef.current = null;
+          }
+          if (!window.UIEditor) {
+            console.error("[StripoEditor] UIEditor not available after waiting");
+            setErrorMessage("Stripo editor failed to load");
+            setLoadingState("error");
+          }
+        }, 10000);
         return;
       }
 
@@ -347,7 +495,7 @@ export function StripoEditor({
 
       script.onload = () => {
         console.log("[StripoEditor] Stripo script loaded successfully");
-        // Wait a bit for UIEditor to be fully available
+        // Wait a bit for UIEditor to be available (Angular needs time to bootstrap)
         setTimeout(() => {
           if (window.UIEditor) {
             initStripoEditor();
@@ -367,28 +515,65 @@ export function StripoEditor({
         console.error("[StripoEditor] Failed to load Stripo script");
         setErrorMessage(errorMsg);
         setLoadingState("error");
+        editorInitializedRef.current = false;
       };
 
       document.head.appendChild(script);
       scriptLoadedRef.current = true;
     };
 
-    loadStripoScript();
+    // Load zone.js first, then Stripo
+    // Note: zone.js is recommended but Stripo may work without it
+    loadZoneJs()
+      .then(() => {
+        console.log("[StripoEditor] zone.js ready, loading Stripo...");
+        loadStripoScript();
+      })
+      .catch((error) => {
+        console.warn("[StripoEditor] Failed to load zone.js:", error);
+        console.warn("[StripoEditor] Proceeding without zone.js - Stripo may handle it internally");
+        // Proceed anyway - Stripo might load zone.js itself or work without it
+        // The warning from Stripo about zone.js is just a warning, not a fatal error
+        loadStripoScript();
+      });
 
     return () => {
-      // Cleanup: remove script if component unmounts
-      const existingScript = document.querySelector("#UiEditorScript");
-      if (existingScript?.parentNode) {
-        existingScript.parentNode.removeChild(existingScript);
-        scriptLoadedRef.current = false;
+      // Cleanup on unmount
+      console.log("[StripoEditor] Cleaning up...");
+      
+      // Clear intervals
+      if (zoneCheckIntervalRef.current) {
+        clearInterval(zoneCheckIntervalRef.current);
+        zoneCheckIntervalRef.current = null;
       }
+      if (uiEditorCheckIntervalRef.current) {
+        clearInterval(uiEditorCheckIntervalRef.current);
+        uiEditorCheckIntervalRef.current = null;
+      }
+      
+      // Run editor cleanup if available
+      if (cleanupRef.current) {
+        cleanupRef.current();
+        cleanupRef.current = null;
+      }
+      
+      // Clear container to prevent shadow DOM conflicts
+      if (containerRef.current) {
+        containerRef.current.innerHTML = '';
+      }
+      
+      // Reset initialization flag
+      editorInitializedRef.current = false;
+      scriptLoadedRef.current = false;
     };
-  }, [providedEmailId, providedHtml, providedCss, shouldCreateTemplate, mergeTags]);
+  }, []); // Empty deps - only run once on mount
 
   return (
     <div className="w-full h-[600px] relative" style={{ minHeight: "600px" }}>
       {/* Container is always rendered - Stripo needs it to initialize */}
+      {/* Use key to ensure fresh container on remount */}
       <div
+        key="stripo-editor-container"
         ref={containerRef}
         id="stripo-editor-container"
         className="w-full h-full"
@@ -398,6 +583,7 @@ export function StripoEditor({
           minHeight: "600px",
           display: "block",
           position: "relative",
+          isolation: "isolate", // Create new stacking context to prevent shadow DOM conflicts
         }}
       />
       {loadingState === "loading" && (
