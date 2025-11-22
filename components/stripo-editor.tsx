@@ -31,6 +31,37 @@ async function getStripoToken(): Promise<string> {
   return data.token;
 }
 
+// Default HTML template for new emails
+const DEFAULT_HTML = `
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin: 0; padding: 20px; font-family: Arial, sans-serif; background-color: #f4f4f4;">
+    <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 40px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+      <h1 style="color: #333333; font-size: 32px; margin: 0 0 20px 0; text-align: center;">
+        Hello, World!
+      </h1>
+      <p style="color: #666666; font-size: 16px; line-height: 1.6; margin: 0; text-align: center;">
+        This is your email template. Start customizing it with Stripo Editor.
+      </p>
+    </div>
+  </body>
+</html>
+`;
+
+// Check if StripoEditorApi is available (editor is ready)
+function checkEditorReady(): boolean {
+  return !!(
+    window.StripoEditorApi?.actionsApi &&
+    typeof window.StripoEditorApi.actionsApi.save === 'function' &&
+    typeof window.StripoEditorApi.actionsApi.compileEmail === 'function' &&
+    typeof window.StripoEditorApi.actionsApi.getTemplateData === 'function'
+  );
+}
+
 // Create a hello world email template via Next.js API route (server-side)
 async function createHelloWorldTemplate(): Promise<string | null> {
   try {
@@ -99,6 +130,7 @@ export function StripoEditor({
 
   useEffect(() => {
     if (scriptLoadedRef.current || stripoOpenedOnceRef.current) return;
+    if (!containerRef.current) return; // Container not ready yet, will retry on next render
 
     console.log("[StripoEditor] Starting initialization...");
     setLoadingState("loading");
@@ -125,6 +157,7 @@ export function StripoEditor({
 
       // Determine emailId to use
       let emailIdToUse = providedEmailId;
+      let htmlToUse = providedHtml;
 
       // Create hello world template if requested
       if (shouldCreateTemplate && !emailIdToUse) {
@@ -136,6 +169,11 @@ export function StripoEditor({
           if (createdEmailId) {
             emailIdToUse = createdEmailId;
             createdEmailIdRef.current = createdEmailId;
+            // Use DEFAULT_HTML when creating hello world template
+            if (!htmlToUse) {
+              htmlToUse = DEFAULT_HTML;
+              console.log("[StripoEditor] Using DEFAULT_HTML for hello world template");
+            }
           } else {
             console.warn(
               "[StripoEditor] Failed to create template, using generated ID",
@@ -157,6 +195,12 @@ export function StripoEditor({
         console.log("[StripoEditor] Using emailId:", emailIdToUse);
       }
 
+      // Ensure HTML is set - use DEFAULT_HTML if creating hello world template and no HTML provided
+      if (!htmlToUse && shouldCreateTemplate) {
+        htmlToUse = DEFAULT_HTML;
+        console.log("[StripoEditor] Using DEFAULT_HTML for hello world template");
+      }
+
       // Check if UIEditor is available
       if (!window.UIEditor) {
         console.error(
@@ -173,7 +217,7 @@ export function StripoEditor({
           metadata: {
             emailId: emailIdToUse,
           },
-          html: providedHtml || '<div></div>',
+          html: htmlToUse || providedHtml || DEFAULT_HTML,
           css: providedCss || '',
           locale: 'en',
           onTokenRefreshRequest: (callback: (token: string) => void) => {
@@ -204,7 +248,73 @@ export function StripoEditor({
 
         console.log("[StripoEditor] Stripo editor initialized successfully");
         stripoOpenedOnceRef.current = true;
-        setLoadingState("loaded");
+
+        // Check if editor content is actually rendering by looking for Stripo elements
+        const checkEditorContent = () => {
+          if (!containerRef.current) return false;
+          
+          // Check if Stripo has injected content into the container
+          const hasStripoContent = containerRef.current.children.length > 0 ||
+                                   containerRef.current.querySelector('iframe') !== null ||
+                                   containerRef.current.querySelector('[id*="stripo"]') !== null ||
+                                   containerRef.current.querySelector('[class*="stripo"]') !== null;
+          
+          return hasStripoContent;
+        };
+
+        // Hide loading overlay once editor content appears or after timeout
+        let contentCheckInterval: ReturnType<typeof setInterval> | null = null;
+        let fallbackTimeout: ReturnType<typeof setTimeout> | null = null;
+
+        // Check for editor content every 200ms
+        contentCheckInterval = setInterval(() => {
+          if (checkEditorContent()) {
+            console.log("[StripoEditor] Editor content detected, hiding loading overlay");
+            if (contentCheckInterval) {
+              clearInterval(contentCheckInterval);
+              contentCheckInterval = null;
+            }
+            if (fallbackTimeout) {
+              clearTimeout(fallbackTimeout);
+              fallbackTimeout = null;
+            }
+            setLoadingState("loaded");
+          }
+        }, 200);
+
+        // Fallback: hide loading after 3 seconds even if content check fails
+        fallbackTimeout = setTimeout(() => {
+          console.log("[StripoEditor] Fallback: hiding loading overlay after timeout");
+          if (contentCheckInterval) {
+            clearInterval(contentCheckInterval);
+            contentCheckInterval = null;
+          }
+          setLoadingState("loaded");
+        }, 3000);
+
+        // Poll for StripoEditorApi to be available (for API features)
+        let editorReadyCheckInterval: ReturnType<typeof setInterval> | null = null;
+        editorReadyCheckInterval = setInterval(() => {
+          const isReady = checkEditorReady();
+          
+          if (isReady) {
+            console.log("[StripoEditor] Editor API is ready");
+            if (editorReadyCheckInterval) {
+              clearInterval(editorReadyCheckInterval);
+              editorReadyCheckInterval = null;
+            }
+          }
+        }, 500); // Check every 500ms
+
+        // Cleanup intervals after 30 seconds
+        setTimeout(() => {
+          if (contentCheckInterval) {
+            clearInterval(contentCheckInterval);
+          }
+          if (editorReadyCheckInterval) {
+            clearInterval(editorReadyCheckInterval);
+          }
+        }, 30000);
       } catch (error) {
         const errorMsg =
           error instanceof Error
@@ -277,8 +387,21 @@ export function StripoEditor({
 
   return (
     <div className="w-full h-[600px] relative" style={{ minHeight: "600px" }}>
+      {/* Container is always rendered - Stripo needs it to initialize */}
+      <div
+        ref={containerRef}
+        id="stripo-editor-container"
+        className="w-full h-full"
+        style={{
+          width: "100%",
+          height: "100%",
+          minHeight: "600px",
+          display: "block",
+          position: "relative",
+        }}
+      />
       {loadingState === "loading" && (
-        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-75 z-10">
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-50 bg-opacity-50 z-10 pointer-events-none">
           <div className="flex flex-col items-center gap-2">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
             <p className="text-sm text-gray-600">Loading Stripo Editor...</p>
@@ -308,18 +431,6 @@ export function StripoEditor({
           </div>
         </div>
       )}
-      <div
-        ref={containerRef}
-        id="stripo-editor-container"
-        className="w-full h-full"
-        style={{
-          width: "100%",
-          height: "100%",
-          minHeight: "600px",
-          display: "block",
-          position: "relative",
-        }}
-      />
     </div>
   );
 }
