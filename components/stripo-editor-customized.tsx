@@ -882,19 +882,22 @@ export function StripoEditorCustomized({
 
                       // Width only changes on mobile (width <= 1200px)
                       // On desktop (width > 1200px): leave width as-is (remove override)
+                      // For ue-ui-simple-panel, use wider width on mobile to accommodate inline block thumbs
+                      const widthValue =
+                        containerWidth <= 1200
+                          ? elementName === "ue-ui-simple-panel"
+                            ? "400px"
+                            : "100px"
+                          : null;
                       if (containerWidth <= 1200) {
-                        element.style.setProperty(
-                          "width",
-                          "100px",
-                          "important",
-                        );
+                        element.style.setProperty("width", widthValue!, "important");
                       } else {
                         element.style.removeProperty("width");
                       }
 
                       console.log(
                         containerWidth <= 1200
-                          ? `[StripoEditorCustomized] Applied transform (10px right, 20px down) and width (100px) to ${elementName} (mobile: width <= 1200px)`
+                          ? `[StripoEditorCustomized] Applied transform (10px right, 20px down) and width (${widthValue}) to ${elementName} (mobile: width <= 1200px)`
                           : `[StripoEditorCustomized] Applied transform (10px right) to ${elementName}, width left as-is (desktop: width > 1200px)`,
                         {
                           tagName: element.tagName,
@@ -906,6 +909,7 @@ export function StripoEditorCustomized({
                           computedWidth: window.getComputedStyle(element).width,
                           movedDown: containerWidth <= 1200,
                           widthApplied: containerWidth <= 1200,
+                          widthValue: widthValue || "default",
                         },
                       );
                     };
@@ -1000,6 +1004,167 @@ export function StripoEditorCustomized({
                       console.warn(
                         "[StripoEditorCustomized] ue-modules-panel-component not found",
                       );
+                    }
+
+                    // Make block thumbs inline on mobile (ue-block-thumb-component inside ue-narrow-panel)
+                    const narrowPanel = uiEditor.shadowRoot.querySelector(
+                      "ue-narrow-panel",
+                    ) as HTMLElement | null;
+                    if (narrowPanel) {
+                      const blockThumbs = narrowPanel.querySelectorAll(
+                        "ue-block-thumb-component",
+                      );
+                      console.log(
+                        "[StripoEditorCustomized] Found ue-narrow-panel with",
+                        blockThumbs.length,
+                        "ue-block-thumb-component elements",
+                      );
+
+                      if (blockThumbs.length > 0) {
+                        // On mobile (width <= 1200px): apply flexbox to make thumbs display inline
+                        // On desktop (width > 1200px): remove flex styles to restore default vertical layout
+                        if (containerWidth <= 1200) {
+                          narrowPanel.style.setProperty(
+                            "display",
+                            "flex",
+                            "important",
+                          );
+                          narrowPanel.style.setProperty(
+                            "flex-direction",
+                            "row",
+                            "important",
+                          );
+                          narrowPanel.style.setProperty(
+                            "flex-wrap",
+                            "wrap",
+                            "important",
+                          );
+                          console.log(
+                            "[StripoEditorCustomized] Applied inline flexbox styles to ue-narrow-panel (mobile: width <= 1200px)",
+                            {
+                              containerWidth,
+                              thumbCount: blockThumbs.length,
+                              display: "flex",
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                            },
+                          );
+                        } else {
+                          // Remove flex styles on desktop to restore default vertical layout
+                          narrowPanel.style.removeProperty("display");
+                          narrowPanel.style.removeProperty("flex-direction");
+                          narrowPanel.style.removeProperty("flex-wrap");
+                          console.log(
+                            "[StripoEditorCustomized] Removed flexbox styles from ue-narrow-panel (desktop: width > 1200px)",
+                            {
+                              containerWidth,
+                              thumbCount: blockThumbs.length,
+                            },
+                          );
+                        }
+                      } else {
+                        console.warn(
+                          "[StripoEditorCustomized] ue-narrow-panel found but no ue-block-thumb-component elements inside",
+                        );
+                      }
+                    } else {
+                      console.warn(
+                        "[StripoEditorCustomized] ue-narrow-panel not found",
+                      );
+                    }
+
+                    // Fix block-panel-content service-element: set to display flex on mobile to prevent grid from stacking thumbs vertically
+                    const blockPanelContent = uiEditor.shadowRoot.querySelector(
+                      ".block-panel-content.service-element",
+                    ) as HTMLElement | null;
+                    if (blockPanelContent) {
+                      if (containerWidth <= 1200) {
+                        blockPanelContent.style.setProperty(
+                          "display",
+                          "flex",
+                          "important",
+                        );
+                        blockPanelContent.style.setProperty(
+                          "flex-direction",
+                          "row",
+                          "important",
+                        );
+                        blockPanelContent.style.setProperty(
+                          "flex-wrap",
+                          "wrap",
+                          "important",
+                        );
+                        console.log(
+                          "[StripoEditorCustomized] Applied flexbox styles to block-panel-content.service-element (mobile: width <= 1200px)",
+                          {
+                            containerWidth,
+                            display: "flex",
+                            flexDirection: "row",
+                            flexWrap: "wrap",
+                          },
+                        );
+                      } else {
+                        // Remove flex styles on desktop to restore default grid layout
+                        blockPanelContent.style.removeProperty("display");
+                        blockPanelContent.style.removeProperty("flex-direction");
+                        blockPanelContent.style.removeProperty("flex-wrap");
+                        console.log(
+                          "[StripoEditorCustomized] Removed flexbox styles from block-panel-content.service-element (desktop: width > 1200px)",
+                          {
+                            containerWidth,
+                          },
+                        );
+                      }
+                    } else {
+                      // Try alternative selector without the dot notation
+                      const blockPanelContentAlt =
+                        uiEditor.shadowRoot.querySelector(
+                          '[class*="block-panel-content"][class*="service-element"]',
+                        ) as HTMLElement | null;
+                      if (blockPanelContentAlt) {
+                        if (containerWidth <= 1200) {
+                          blockPanelContentAlt.style.setProperty(
+                            "display",
+                            "flex",
+                            "important",
+                          );
+                          blockPanelContentAlt.style.setProperty(
+                            "flex-direction",
+                            "row",
+                            "important",
+                          );
+                          blockPanelContentAlt.style.setProperty(
+                            "flex-wrap",
+                            "wrap",
+                            "important",
+                          );
+                          console.log(
+                            "[StripoEditorCustomized] Applied flexbox styles to block-panel-content.service-element (alternative selector, mobile: width <= 1200px)",
+                            {
+                              containerWidth,
+                              display: "flex",
+                              flexDirection: "row",
+                              flexWrap: "wrap",
+                            },
+                          );
+                        } else {
+                          blockPanelContentAlt.style.removeProperty("display");
+                          blockPanelContentAlt.style.removeProperty(
+                            "flex-direction",
+                          );
+                          blockPanelContentAlt.style.removeProperty("flex-wrap");
+                          console.log(
+                            "[StripoEditorCustomized] Removed flexbox styles from block-panel-content.service-element (alternative selector, desktop: width > 1200px)",
+                            {
+                              containerWidth,
+                            },
+                          );
+                        }
+                      } else {
+                        console.warn(
+                          "[StripoEditorCustomized] block-panel-content.service-element not found",
+                        );
+                      }
                     }
                   }
                 } catch (error) {
