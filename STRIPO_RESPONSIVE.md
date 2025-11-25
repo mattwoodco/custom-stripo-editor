@@ -213,13 +213,13 @@ const BREAKPOINTS: BreakpointConfig[] = [
   {
     min: 769,
     max: 1200,
-    styles: { width: "100px", transform: "translateX(10px)" }
+    styles: { width: "100px", transform: "translateX(10px) translateY(20px)" }
   },
   {
     min: 1201,
     styles: { 
-      width: "120px", 
-      transform: "translateX(15px) translateY(20px)"
+      // No width override on desktop - leave as-is
+      transform: "translateX(15px)"
     }
   }
 ];
@@ -257,17 +257,22 @@ function createResponsiveStyler(
     
     if (!element) return;
 
-    // Always apply base styles
-    applyStyles(element, {
-      width: "100px",
-    });
-
     // Apply responsive transform based on width
+    // On mobile (width <= 1200px): move down 20px
+    // On desktop (width > 1200px): leave as is
     const transformValue =
-      containerWidth > 1200
+      containerWidth <= 1200
         ? "translateX(10px) translateY(20px)"
         : "translateX(10px)";
     element.style.setProperty("transform", transformValue, "important");
+
+    // Width only changes on mobile (width <= 1200px)
+    // On desktop (width > 1200px): leave width as-is (remove override)
+    if (containerWidth <= 1200) {
+      element.style.setProperty("width", "100px", "important");
+    } else {
+      element.style.removeProperty("width");
+    }
   };
 
   const setupObserver = () => {
@@ -376,15 +381,21 @@ export function StripoEditorWithResponsiveStyles() {
         if (current.tagName.toLowerCase() === "ue-ui-simple-panel") {
           const simplePanel = current as HTMLElement;
           
-          // Base styles (always applied)
-          simplePanel.style.setProperty("width", "100px", "important");
-          
-          // Responsive transform: move right 10px, and down 20px when width > 1200px
+          // Responsive transform: move right 10px, and down 20px on mobile (width <= 1200px)
+          // On desktop (width > 1200px): leave as is (just translateX)
           const transformValue =
-            containerWidth > 1200
+            containerWidth <= 1200
               ? "translateX(10px) translateY(20px)"
               : "translateX(10px)";
           simplePanel.style.setProperty("transform", transformValue, "important");
+          
+          // Width only changes on mobile (width <= 1200px)
+          // On desktop (width > 1200px): leave width as-is (remove override)
+          if (containerWidth <= 1200) {
+            simplePanel.style.setProperty("width", "100px", "important");
+          } else {
+            simplePanel.style.removeProperty("width");
+          }
           
           break;
         }
@@ -429,15 +440,15 @@ interface BreakpointStyles {
 const BREAKPOINT_STYLES: Record<string, BreakpointStyles> = {
   mobile: {
     width: "80px",
-    transform: "translateX(5px)",
+    transform: "translateX(5px) translateY(20px)",
   },
   tablet: {
     width: "100px",
-    transform: "translateX(10px)",
+    transform: "translateX(10px) translateY(20px)",
   },
   desktop: {
-    width: "120px",
-    transform: "translateX(15px) translateY(20px)",
+    // No width override on desktop - leave as-is
+    transform: "translateX(15px)",
     padding: "10px",
   },
 };
@@ -451,7 +462,14 @@ function getBreakpointStyles(width: number): BreakpointStyles {
 function applyBreakpointStyles(element: HTMLElement, width: number) {
   const styles = getBreakpointStyles(width);
   
-  element.style.setProperty("width", styles.width, "important");
+  // Width only applied on mobile/tablet (width <= 1200px)
+  // On desktop (width > 1200px): leave width as-is (no override)
+  if (styles.width) {
+    element.style.setProperty("width", styles.width, "important");
+  } else {
+    element.style.removeProperty("width");
+  }
+  
   element.style.setProperty("transform", styles.transform, "important");
   
   if (styles.backgroundColor) {
@@ -483,9 +501,9 @@ interface ElementStyleConfig {
 const ELEMENT_CONFIGS: ElementStyleConfig[] = [
   {
     selector: "ue-ui-simple-panel",
-    baseStyles: { transform: "translateX(10px)" },
+    baseStyles: { transform: "translateX(10px) translateY(20px)" },
     responsiveStyles: [
-      { minWidth: 1200, styles: { transform: "translateX(10px) translateY(20px)" } },
+      { minWidth: 1201, styles: { transform: "translateX(10px)" } },
     ],
   },
   {
@@ -607,7 +625,7 @@ const styleConfigs: StyleConfig[] = [
   {
     property: "transform",
     value: "translateX(10px) translateY(20px)",
-    breakpoint: { min: 1200 },
+    breakpoint: { max: 1200 },
   },
 ];
 ```

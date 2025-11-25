@@ -867,9 +867,10 @@ export function StripoEditorCustomized({
                       elementName: string,
                     ) => {
                       // Base transform: move right 10px
-                      // When width > 1200px: also move down 20px
+                      // On mobile (width <= 1200px): also move down 20px
+                      // On desktop (width > 1200px): leave as is (just translateX)
                       const transformValue =
-                        containerWidth > 1200
+                        containerWidth <= 1200
                           ? "translateX(10px) translateY(20px)"
                           : "translateX(10px)";
 
@@ -878,16 +879,23 @@ export function StripoEditorCustomized({
                         transformValue,
                         "important",
                       );
-                      element.style.setProperty(
-                        "width",
-                        "100px",
-                        "important",
-                      );
+
+                      // Width only changes on mobile (width <= 1200px)
+                      // On desktop (width > 1200px): leave width as-is (remove override)
+                      if (containerWidth <= 1200) {
+                        element.style.setProperty(
+                          "width",
+                          "100px",
+                          "important",
+                        );
+                      } else {
+                        element.style.removeProperty("width");
+                      }
 
                       console.log(
-                        containerWidth > 1200
-                          ? `[StripoEditorCustomized] Applied transform (10px right, 20px down) and width to ${elementName} (width > 1200px)`
-                          : `[StripoEditorCustomized] Applied transform (10px right) and width to ${elementName}`,
+                        containerWidth <= 1200
+                          ? `[StripoEditorCustomized] Applied transform (10px right, 20px down) and width (100px) to ${elementName} (mobile: width <= 1200px)`
+                          : `[StripoEditorCustomized] Applied transform (10px right) to ${elementName}, width left as-is (desktop: width > 1200px)`,
                         {
                           tagName: element.tagName,
                           className: element.className,
@@ -896,7 +904,8 @@ export function StripoEditorCustomized({
                           computedTransform:
                             window.getComputedStyle(element).transform,
                           computedWidth: window.getComputedStyle(element).width,
-                          movedDown: containerWidth > 1200,
+                          movedDown: containerWidth <= 1200,
+                          widthApplied: containerWidth <= 1200,
                         },
                       );
                     };
@@ -959,9 +968,10 @@ export function StripoEditorCustomized({
                           const parentElement =
                             blocksPanel.parentElement as HTMLElement;
                           // Base transform: move right 10px
-                          // When width > 1200px: also move down 20px
+                          // On mobile (width <= 1200px): also move down 20px
+                          // On desktop (width > 1200px): leave as is (just translateX)
                           const transformValue =
-                            containerWidth > 1200
+                            containerWidth <= 1200
                               ? "translateX(10px) translateY(20px)"
                               : "translateX(10px)";
                           parentElement.style.setProperty(

@@ -27,8 +27,8 @@ simplePanel.style.setProperty("width", "100px", "important");
 ### 3. Applied Styles
 
 - **Transform**: `translateX(10px)` - Moves the panel 10px to the right (always applied)
-- **Width**: `100px` - Sets the panel width to 100px (always applied)
-- **Transform (responsive)**: `translateY(20px)` - Moves the panel down 20px when editor width > 1200px (combined with translateX)
+- **Transform (responsive)**: `translateY(20px)` - Moves the panel down 20px on mobile when editor width <= 1200px (combined with translateX)
+- **Width (responsive)**: `100px` - Sets the panel width to 100px only on mobile when editor width <= 1200px (desktop width left as-is)
 
 ## Components
 
@@ -48,8 +48,8 @@ simplePanel.style.setProperty("width", "100px", "important");
 
 Styles adapt based on the editor container width:
 
-- **Width ≤ 1200px**: Transform (10px right) and width styles are applied
-- **Width > 1200px**: Transform (10px right, 20px down) and width styles are applied
+- **Width ≤ 1200px (Mobile)**: Transform (10px right, 20px down) and width (100px) are applied
+- **Width > 1200px (Desktop)**: Only transform (10px right) is applied, width is left as-is (no override)
 
 Width detection uses `ResizeObserver` to monitor container size changes in real-time. Styles are automatically updated when the editor is resized.
 
