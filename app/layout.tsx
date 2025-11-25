@@ -31,7 +31,7 @@ export default function RootLayout({
       >
         {/* Load zone.js early - required for Stripo (Angular-based) */}
         <Script
-          src="https://unpkg.com/zone.js@0.14.3/dist/zone.min.js"
+          src="https://cdnjs.cloudflare.com/ajax/libs/zone.js/0.14.3/zone.min.js"
           strategy="beforeInteractive"
           id="zone-js-script"
         />

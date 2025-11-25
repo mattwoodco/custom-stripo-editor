@@ -191,8 +191,8 @@ export function StripoEditor({
         }
         
         const script = document.createElement("script");
-        // Use unpkg CDN (better CORS support)
-        script.src = "https://unpkg.com/zone.js@0.14.3/dist/zone.min.js";
+        // Use cdnjs CDN (correct path structure for zone.js 0.14.3)
+        script.src = "https://cdnjs.cloudflare.com/ajax/libs/zone.js/0.14.3/zone.min.js";
         script.async = false; // Load synchronously to ensure it's available
         
         script.onload = () => {
