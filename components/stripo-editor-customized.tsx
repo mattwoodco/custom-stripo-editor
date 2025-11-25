@@ -236,12 +236,15 @@ export function StripoEditorCustomized({
   const editorInitializedRef = useRef(false);
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isNarrowPanelVisible, setIsNarrowPanelVisible] = useState(true);
   const cleanupRef = useRef<(() => void) | null>(null);
   const uiEditorCheckIntervalRef = useRef<ReturnType<
     typeof setInterval
   > | null>(null);
   const tokenRef = useRef<string | null>(null); // Cache token for synchronous access
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const previousMobileRef = useRef<boolean>(false);
 
   useEffect(() => {
     // Add global error handler for Stripo API errors with graceful degradation
@@ -1176,7 +1179,12 @@ export function StripoEditorCustomized({
               };
 
               // Apply immediately with current width
-              applyPositioning();
+              const initialWidth =
+                containerRef.current?.getBoundingClientRect().width ?? 0;
+              const initialMobile = initialWidth <= 1200;
+              previousMobileRef.current = initialMobile;
+              setIsMobile(initialMobile);
+              applyPositioning(initialWidth);
 
               // Set up ResizeObserver to track container width changes
               if (
@@ -1194,6 +1202,31 @@ export function StripoEditorCustomized({
                     "[StripoEditorCustomized] Container width changed:",
                     width,
                   );
+                  const wasMobile = previousMobileRef.current;
+                  const mobile = width <= 1200;
+                  previousMobileRef.current = mobile;
+                  setIsMobile(mobile);
+
+                  // When switching from mobile to desktop, restore panel visibility
+                  if (wasMobile && !mobile) {
+                    const container = containerRef.current;
+                    if (container) {
+                      const uiEditor = container.querySelector("ui-editor");
+                      if (uiEditor?.shadowRoot) {
+                        const narrowPanel = uiEditor.shadowRoot.querySelector(
+                          "ue-narrow-panel",
+                        ) as HTMLElement | null;
+                        if (narrowPanel) {
+                          narrowPanel.style.removeProperty("display");
+                          setIsNarrowPanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored narrow panel visibility when switching to desktop",
+                          );
+                        }
+                      }
+                    }
+                  }
+
                   applyPositioning(width);
                 });
 
@@ -1209,6 +1242,31 @@ export function StripoEditorCustomized({
                 const handleResize = () => {
                   const width =
                     containerRef.current?.getBoundingClientRect().width ?? 0;
+                  const wasMobile = previousMobileRef.current;
+                  const mobile = width <= 1200;
+                  previousMobileRef.current = mobile;
+                  setIsMobile(mobile);
+
+                  // When switching from mobile to desktop, restore panel visibility
+                  if (wasMobile && !mobile) {
+                    const container = containerRef.current;
+                    if (container) {
+                      const uiEditor = container.querySelector("ui-editor");
+                      if (uiEditor?.shadowRoot) {
+                        const narrowPanel = uiEditor.shadowRoot.querySelector(
+                          "ue-narrow-panel",
+                        ) as HTMLElement | null;
+                        if (narrowPanel) {
+                          narrowPanel.style.removeProperty("display");
+                          setIsNarrowPanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored narrow panel visibility when switching to desktop (window resize fallback)",
+                          );
+                        }
+                      }
+                    }
+                  }
+
                   applyPositioning(width);
                 };
                 window.addEventListener("resize", handleResize);
@@ -1801,10 +1859,85 @@ export function StripoEditorCustomized({
     }
   }, []);
 
+  // Toggle function for narrow panel visibility
+  const toggleNarrowPanel = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const uiEditor = container.querySelector("ui-editor");
+    if (!uiEditor?.shadowRoot) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle narrow panel: ui-editor or shadowRoot not found",
+      );
+      return;
+    }
+
+    const narrowPanel = uiEditor.shadowRoot.querySelector(
+      "ue-narrow-panel",
+    ) as HTMLElement | null;
+
+    if (!narrowPanel) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle narrow panel: ue-narrow-panel not found",
+      );
+      return;
+    }
+
+    const newVisibility = !isNarrowPanelVisible;
+    setIsNarrowPanelVisible(newVisibility);
+
+    if (newVisibility) {
+      // Show the panel - remove display property to restore default
+      narrowPanel.style.removeProperty("display");
+      console.log(
+        "[StripoEditorCustomized] Narrow panel shown (display property removed)",
+      );
+    } else {
+      // Hide the panel
+      narrowPanel.style.setProperty("display", "none", "important");
+      console.log(
+        "[StripoEditorCustomized] Narrow panel hidden (display: none)",
+      );
+    }
+  };
+
   return (
     <div className="w-full h-[600px] relative" style={{ minHeight: "600px" }}>
-      {process.env.NODE_ENV === "development" && (
-        <div className="absolute top-2 right-2 z-20 flex gap-2">
+      <div className="absolute top-2 right-2 z-20 flex gap-2">
+        {isMobile && (
+          <button
+            type="button"
+            onClick={toggleNarrowPanel}
+            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
+            title={
+              isNarrowPanelVisible
+                ? "Hide narrow panel"
+                : "Show narrow panel"
+            }
+            aria-label={
+              isNarrowPanelVisible
+                ? "Hide narrow panel"
+                : "Show narrow panel"
+            }
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="1" />
+              <circle cx="19" cy="12" r="1" />
+              <circle cx="5" cy="12" r="1" />
+            </svg>
+          </button>
+        )}
+        {process.env.NODE_ENV === "development" && (
           <button
             type="button"
             onClick={() => {
@@ -1819,8 +1952,8 @@ export function StripoEditorCustomized({
           >
             Clear Storage
           </button>
-        </div>
-      )}
+        )}
+      </div>
       <div
         key="stripo-editor-container-customized"
         ref={containerRef}
