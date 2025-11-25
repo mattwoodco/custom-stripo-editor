@@ -168,4 +168,40 @@
     display: block !important;
     visibility: visible !important;
   }
+
+  /* Customized editor container */
+  #stripo-editor-container-customized {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 600px !important;
+    position: relative !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1 !important;
+    overflow: visible !important;
+  }
+
+  #stripo-editor-container-customized ui-editor {
+    display: block !important;
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 600px !important;
+    position: relative !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  #stripo-editor-container-customized * {
+    visibility: visible !important;
+  }
+
+  #stripo-editor-container-customized iframe {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 600px !important;
+    border: none !important;
+    display: block !important;
+    visibility: visible !important;
+  }
 }
