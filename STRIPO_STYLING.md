@@ -28,7 +28,7 @@ simplePanel.style.setProperty("width", "100px", "important");
 
 - **Transform**: `translateX(10px)` - Moves the panel 10px to the right (always applied)
 - **Width**: `100px` - Sets the panel width to 100px (always applied)
-- **Background Color**: `pink` - Applied conditionally when editor width > 1200px
+- **Transform (responsive)**: `translateY(20px)` - Moves the panel down 20px when editor width > 1200px (combined with translateX)
 
 ## Components
 
@@ -48,8 +48,8 @@ simplePanel.style.setProperty("width", "100px", "important");
 
 Styles adapt based on the editor container width:
 
-- **Width ≤ 1200px**: Only transform and width styles are applied
-- **Width > 1200px**: Transform, width, and pink background color are applied
+- **Width ≤ 1200px**: Transform (10px right) and width styles are applied
+- **Width > 1200px**: Transform (10px right, 20px down) and width styles are applied
 
 Width detection uses `ResizeObserver` to monitor container size changes in real-time. Styles are automatically updated when the editor is resized.
 

@@ -219,8 +219,7 @@ const BREAKPOINTS: BreakpointConfig[] = [
     min: 1201,
     styles: { 
       width: "120px", 
-      transform: "translateX(15px)",
-      "background-color": "pink"
+      transform: "translateX(15px) translateY(20px)"
     }
   }
 ];
@@ -260,16 +259,15 @@ function createResponsiveStyler(
 
     // Always apply base styles
     applyStyles(element, {
-      transform: "translateX(10px)",
       width: "100px",
     });
 
-    // Apply responsive styles based on width
-    if (containerWidth > 1200) {
-      element.style.setProperty("background-color", "pink", "important");
-    } else {
-      element.style.removeProperty("background-color");
-    }
+    // Apply responsive transform based on width
+    const transformValue =
+      containerWidth > 1200
+        ? "translateX(10px) translateY(20px)"
+        : "translateX(10px)";
+    element.style.setProperty("transform", transformValue, "important");
   };
 
   const setupObserver = () => {
@@ -379,15 +377,14 @@ export function StripoEditorWithResponsiveStyles() {
           const simplePanel = current as HTMLElement;
           
           // Base styles (always applied)
-          simplePanel.style.setProperty("transform", "translateX(10px)", "important");
           simplePanel.style.setProperty("width", "100px", "important");
           
-          // Responsive styles
-          if (containerWidth > 1200) {
-            simplePanel.style.setProperty("background-color", "pink", "important");
-          } else {
-            simplePanel.style.removeProperty("background-color");
-          }
+          // Responsive transform: move right 10px, and down 20px when width > 1200px
+          const transformValue =
+            containerWidth > 1200
+              ? "translateX(10px) translateY(20px)"
+              : "translateX(10px)";
+          simplePanel.style.setProperty("transform", transformValue, "important");
           
           break;
         }
@@ -440,8 +437,7 @@ const BREAKPOINT_STYLES: Record<string, BreakpointStyles> = {
   },
   desktop: {
     width: "120px",
-    transform: "translateX(15px)",
-    backgroundColor: "pink",
+    transform: "translateX(15px) translateY(20px)",
     padding: "10px",
   },
 };
@@ -489,7 +485,7 @@ const ELEMENT_CONFIGS: ElementStyleConfig[] = [
     selector: "ue-ui-simple-panel",
     baseStyles: { transform: "translateX(10px)" },
     responsiveStyles: [
-      { minWidth: 1200, styles: { "background-color": "pink" } },
+      { minWidth: 1200, styles: { transform: "translateX(10px) translateY(20px)" } },
     ],
   },
   {
@@ -609,8 +605,8 @@ interface StyleConfig {
 
 const styleConfigs: StyleConfig[] = [
   {
-    property: "background-color",
-    value: "pink",
+    property: "transform",
+    value: "translateX(10px) translateY(20px)",
     breakpoint: { min: 1200 },
   },
 ];
@@ -625,6 +621,7 @@ const styleConfigs: StyleConfig[] = [
 **Problem**: Element selector returns `null`
 
 **Solutions**:
+
 - Increase `maxDepth` in DOM traversal
 - Use `MutationObserver` to wait for element appearance
 - Check element exists in Shadow DOM: `uiEditor.shadowRoot.querySelector()`
@@ -634,6 +631,7 @@ const styleConfigs: StyleConfig[] = [
 **Problem**: Styles are set but not visible
 
 **Solutions**:
+
 - Ensure `!important` flag is used
 - Check for CSS specificity conflicts
 - Verify element is correct target (use browser DevTools)
@@ -643,6 +641,7 @@ const styleConfigs: StyleConfig[] = [
 **Problem**: Styles don't update on resize
 
 **Solutions**:
+
 - Verify `ResizeObserver` is supported (use fallback)
 - Check container has dimensions (`width > 0`)
 - Ensure observer is observing correct element
@@ -652,6 +651,7 @@ const styleConfigs: StyleConfig[] = [
 **Problem**: Frequent style updates cause lag
 
 **Solutions**:
+
 - Debounce resize callbacks
 - Batch style updates
 - Use `requestAnimationFrame` for smooth updates
@@ -696,4 +696,3 @@ This guide provides patterns for:
 5. **Cleanup**: Properly disposing of observers and event listeners
 
 Use these patterns as building blocks for your custom Stripo editor styling needs.
-

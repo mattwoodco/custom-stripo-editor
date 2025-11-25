@@ -861,6 +861,46 @@ export function StripoEditorCustomized({
 
                   const uiEditor = container.querySelector("ui-editor");
                   if (uiEditor?.shadowRoot) {
+                    // Helper function to apply responsive styling to an element
+                    const applyResponsiveStyling = (
+                      element: HTMLElement,
+                      elementName: string,
+                    ) => {
+                      // Base transform: move right 10px
+                      // When width > 1200px: also move down 20px
+                      const transformValue =
+                        containerWidth > 1200
+                          ? "translateX(10px) translateY(20px)"
+                          : "translateX(10px)";
+
+                      element.style.setProperty(
+                        "transform",
+                        transformValue,
+                        "important",
+                      );
+                      element.style.setProperty(
+                        "width",
+                        "100px",
+                        "important",
+                      );
+
+                      console.log(
+                        containerWidth > 1200
+                          ? `[StripoEditorCustomized] Applied transform (10px right, 20px down) and width to ${elementName} (width > 1200px)`
+                          : `[StripoEditorCustomized] Applied transform (10px right) and width to ${elementName}`,
+                        {
+                          tagName: element.tagName,
+                          className: element.className,
+                          containerWidth,
+                          transformValue,
+                          computedTransform:
+                            window.getComputedStyle(element).transform,
+                          computedWidth: window.getComputedStyle(element).width,
+                          movedDown: containerWidth > 1200,
+                        },
+                      );
+                    };
+
                     // Find ue-blocks-panel-component and walk up to find ue-ui-simple-panel
                     const blocksPanel = uiEditor.shadowRoot.querySelector(
                       "ue-blocks-panel-component",
@@ -906,47 +946,9 @@ export function StripoEditorCustomized({
 
                       // Apply transform and width to ue-ui-simple-panel (always applied)
                       if (simplePanel) {
-                        simplePanel.style.setProperty(
-                          "transform",
-                          "translateX(10px)",
-                          "important",
-                        );
-                        simplePanel.style.setProperty(
-                          "width",
-                          "100px",
-                          "important",
-                        );
-
-                        // Apply pink background conditionally based on width
-                        if (containerWidth > 1200) {
-                          simplePanel.style.setProperty(
-                            "background-color",
-                            "pink",
-                            "important",
-                          );
-                          console.log(
-                            "[StripoEditorCustomized] Applied pink background (width > 1200px)",
-                            {
-                              containerWidth,
-                              tagName: simplePanel.tagName,
-                            },
-                          );
-                        } else {
-                          simplePanel.style.removeProperty("background-color");
-                        }
-
-                        console.log(
-                          "[StripoEditorCustomized] Applied transform and width to ue-ui-simple-panel (10px right, 100px wide)",
-                          {
-                            tagName: simplePanel.tagName,
-                            className: simplePanel.className,
-                            containerWidth,
-                            computedTransform:
-                              window.getComputedStyle(simplePanel).transform,
-                            computedWidth:
-                              window.getComputedStyle(simplePanel).width,
-                            hasPinkBackground: containerWidth > 1200,
-                          },
+                        applyResponsiveStyling(
+                          simplePanel,
+                          "ue-ui-simple-panel",
                         );
                       } else {
                         console.warn(
@@ -956,27 +958,37 @@ export function StripoEditorCustomized({
                         if (blocksPanel.parentElement) {
                           const parentElement =
                             blocksPanel.parentElement as HTMLElement;
+                          // Base transform: move right 10px
+                          // When width > 1200px: also move down 20px
+                          const transformValue =
+                            containerWidth > 1200
+                              ? "translateX(10px) translateY(20px)"
+                              : "translateX(10px)";
                           parentElement.style.setProperty(
                             "transform",
-                            "translateX(10px)",
+                            transformValue,
                             "important",
                           );
-                          if (containerWidth > 1200) {
-                            parentElement.style.setProperty(
-                              "background-color",
-                              "pink",
-                              "important",
-                            );
-                          } else {
-                            parentElement.style.removeProperty(
-                              "background-color",
-                            );
-                          }
                         }
                       }
                     } else {
                       console.warn(
                         "[StripoEditorCustomized] ue-blocks-panel-component not found",
+                      );
+                    }
+
+                    // Apply same responsive effect to ue-modules-panel-component (independent of blocks panel)
+                    const modulesPanel = uiEditor.shadowRoot.querySelector(
+                      "ue-modules-panel-component",
+                    ) as HTMLElement | null;
+                    if (modulesPanel) {
+                      applyResponsiveStyling(
+                        modulesPanel,
+                        "ue-modules-panel-component",
+                      );
+                    } else {
+                      console.warn(
+                        "[StripoEditorCustomized] ue-modules-panel-component not found",
                       );
                     }
                   }
