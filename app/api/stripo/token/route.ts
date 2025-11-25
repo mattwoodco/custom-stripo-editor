@@ -58,6 +58,12 @@ export async function GET(request: NextRequest) {
     // In a real app, this would come from the authenticated user's session
     const userId = `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+    // Role selection: "user" for UI editor, "API" for backend-to-backend requests
+    // According to Stripo docs, "API" role may be needed for plugin config endpoint
+    // For now, use "user" as default (works for editor initialization)
+    // If plugin config endpoint still fails with 403, try "API" role
+    const role = (request.nextUrl.searchParams.get("role") as "user" | "API") || "user";
+
     // Check if pluginId is a JWT token (common mistake - env var might contain JWT instead of pluginId)
     let pluginIdToUse = apiKey;
     if (apiKey && apiKey.startsWith("eyJ")) {
@@ -109,7 +115,7 @@ export async function GET(request: NextRequest) {
       pluginId: pluginIdToUse,
       secretKey: secretKey,
       userId: userId,
-      role: "user",
+      role: role,
     };
 
     // Only log detailed info in development or if there's an issue
@@ -122,9 +128,19 @@ export async function GET(request: NextRequest) {
           ? `${pluginIdToUse.substring(0, 10)}...${pluginIdToUse.substring(pluginIdToUse.length - 6)}`
           : undefined,
         userId,
-        role: "user",
+        role: role,
       });
     }
+
+    console.log("[API] ===== STRIPO TOKEN REQUEST =====");
+    console.log("[API] Request details:", {
+      url: STRIPO_AUTH_URL,
+      method: "POST",
+      pluginIdLength: pluginIdToUse?.length,
+      secretKeyLength: secretKey?.length,
+      userId,
+      role: role,
+    });
 
     const response = await fetch(STRIPO_AUTH_URL, {
       method: "POST",
@@ -132,6 +148,13 @@ export async function GET(request: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(requestBody),
+    });
+
+    console.log("[API] Stripo auth response:", {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries()),
     });
 
     if (!response.ok) {
@@ -206,6 +229,10 @@ export async function GET(request: NextRequest) {
     }
 
     const data = (await response.json()) as { token: string };
+    console.log("[API] ✓ Stripo token received successfully:", {
+      tokenLength: data.token?.length,
+      tokenPreview: data.token ? `${data.token.substring(0, 20)}...` : "null",
+    });
     return NextResponse.json({ token: data.token });
   } catch (error) {
     console.error("[API] Error fetching Stripo token:", error);
