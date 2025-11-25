@@ -54,10 +54,14 @@ export async function fetchStripoTemplates(): Promise<{
   error?: string;
 }> {
   try {
-    const response = await fetch("/api/stripo/templates?type=FREE&limit=50&sort=NEW&page=0");
-    
+    const response = await fetch(
+      "/api/stripo/templates?type=FREE&limit=50&sort=NEW&page=0",
+    );
+
     if (!response.ok) {
-      console.warn("[TemplateSelector] API request failed, using fallback templates");
+      console.warn(
+        "[TemplateSelector] API request failed, using fallback templates",
+      );
       return {
         templates: FALLBACK_TEMPLATES,
         error: `API request failed: ${response.status}`,
@@ -65,7 +69,7 @@ export async function fetchStripoTemplates(): Promise<{
     }
 
     const data = await response.json();
-    
+
     if (data.error || !data.templates || data.templates.length === 0) {
       console.warn("[TemplateSelector] No templates from API, using fallback");
       return {
@@ -81,8 +85,8 @@ export async function fetchStripoTemplates(): Promise<{
     console.error("[TemplateSelector] Error fetching templates:", error);
     return {
       templates: FALLBACK_TEMPLATES,
-      error: error instanceof Error ? error.message : "Failed to fetch templates",
+      error:
+        error instanceof Error ? error.message : "Failed to fetch templates",
     };
   }
 }
-

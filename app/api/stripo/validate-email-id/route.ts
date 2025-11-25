@@ -8,8 +8,7 @@ async function getStripoToken(): Promise<string> {
     process.env.NEXT_PUBLIC_STRIPO_API_KEY ||
     process.env.STRIPO_API_KEY;
   const secretKey =
-    process.env.STRIPO_SECRET_KEY ||
-    process.env.NEXT_PUBLIC_STRIPO_SECRET_KEY;
+    process.env.STRIPO_SECRET_KEY || process.env.NEXT_PUBLIC_STRIPO_SECRET_KEY;
 
   if (!apiKey || !secretKey) {
     throw new Error("Stripo API credentials not configured");
@@ -32,7 +31,9 @@ async function getStripoToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => `HTTP ${response.status}`);
+    const errorText = await response
+      .text()
+      .catch(() => `HTTP ${response.status}`);
     throw new Error(`Failed to authenticate with Stripo: ${errorText}`);
   }
 
@@ -66,9 +67,9 @@ export async function POST(request: NextRequest) {
     console.log("[API] EmailId to validate:", emailId);
 
     // Get token first
-    let token: string;
+    let _token: string;
     try {
-      token = await getStripoToken();
+      _token = await getStripoToken();
       console.log("[API] ✓ Token obtained for validation");
     } catch (error) {
       console.error("[API] ✗ Failed to get token for validation:", error);
@@ -88,15 +89,20 @@ export async function POST(request: NextRequest) {
     // For now, we'll return a response indicating we can't validate server-side
     // The real validation happens client-side when the editor initializes
 
-    console.log("[API] ⚠ Stripo Plugin API doesn't have a direct template validation endpoint");
-    console.log("[API] Template existence will be validated when the editor initializes");
+    console.log(
+      "[API] ⚠ Stripo Plugin API doesn't have a direct template validation endpoint",
+    );
+    console.log(
+      "[API] Template existence will be validated when the editor initializes",
+    );
 
     // Return response indicating validation will happen client-side
     return NextResponse.json({
       emailId,
       exists: null, // Unknown - will be validated client-side
       note: "Stripo Plugin API doesn't support server-side template validation. The template will be validated when the editor initializes. If the template doesn't exist, Stripo SDK will create it automatically.",
-      recommendation: "If you want to ensure a template exists, initialize the editor with this emailId. If it doesn't exist, Stripo will create it.",
+      recommendation:
+        "If you want to ensure a template exists, initialize the editor with this emailId. If it doesn't exist, Stripo will create it.",
     });
   } catch (error) {
     console.error("[API] Error validating emailId:", error);
@@ -113,4 +119,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

@@ -112,40 +112,6 @@ export function clearStripoStorage(options?: {
   }
 }
 
-// Validate emailId exists in Stripo (client-side check via editor API)
-async function validateEmailIdExists(emailId: string): Promise<boolean | null> {
-  try {
-    console.log("[StripoEditorCustomized] Validating emailId exists:", emailId);
-
-    // Try to call the API route (though it can't fully validate server-side)
-    const response = await fetch("/api/stripo/validate-email-id", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ emailId }),
-    });
-
-    if (!response.ok) {
-      console.warn(
-        "[StripoEditorCustomized] Validation API returned error:",
-        response.status,
-      );
-      return null; // Unknown
-    }
-
-    const data = await response.json();
-    console.log("[StripoEditorCustomized] Validation response:", data);
-
-    // The API can't actually validate server-side, but we can check client-side
-    // after editor initializes using StripoEditorApi
-    return null; // Unknown - will be validated after editor loads
-  } catch (error) {
-    console.error("[StripoEditorCustomized] Error validating emailId:", error);
-    return null; // Unknown
-  }
-}
-
 // Validate emailId exists using StripoEditorApi (must be called after editor loads)
 function validateEmailIdWithEditorApi(emailId: string): Promise<boolean> {
   return new Promise((resolve) => {
@@ -270,11 +236,7 @@ export function StripoEditorCustomized({
   const editorInitializedRef = useRef(false);
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const createdEmailIdRef = useRef<string | null>(null);
   const cleanupRef = useRef<(() => void) | null>(null);
-  const zoneCheckIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
-    null,
-  );
   const uiEditorCheckIntervalRef = useRef<ReturnType<
     typeof setInterval
   > | null>(null);
@@ -522,7 +484,6 @@ export function StripoEditorCustomized({
             );
             if (emailId) {
               emailIdToUse = emailId;
-              createdEmailIdRef.current = emailId;
               if (!htmlToUse) {
                 htmlToUse = DEFAULT_HTML;
                 console.log(
@@ -854,8 +815,10 @@ export function StripoEditorCustomized({
         );
         // Don't set loading state to 'loaded' immediately - wait for editor to actually render
         // The 403 error might prevent rendering even though initEditor() returned successfully
-        console.log("[StripoEditorCustomized] Waiting for editor to render before hiding loading spinner...");
-        
+        console.log(
+          "[StripoEditorCustomized] Waiting for editor to render before hiding loading spinner...",
+        );
+
         // Check if editor actually rendered - poll until it appears or timeout
         let renderCheckCount = 0;
         const maxRenderChecks = 40; // 20 seconds max (40 * 500ms)
@@ -864,131 +827,201 @@ export function StripoEditorCustomized({
           const container = containerRef.current;
           if (container) {
             const uiEditor = container.querySelector("ui-editor");
-            const hasShadowRoot = !!(uiEditor?.shadowRoot);
+            const hasShadowRoot = !!uiEditor?.shadowRoot;
             const hasContent = container.children.length > 0 || hasShadowRoot;
-            
-            console.log(`[StripoEditorCustomized] Editor render check #${renderCheckCount}:`, {
-              hasContainer: !!container,
-              hasUIEditor: !!uiEditor,
-              hasShadowRoot,
-              containerChildren: container.children.length,
-              hasContent,
-            });
-            
+
+            console.log(
+              `[StripoEditorCustomized] Editor render check #${renderCheckCount}:`,
+              {
+                hasContainer: !!container,
+                hasUIEditor: !!uiEditor,
+                hasShadowRoot,
+                containerChildren: container.children.length,
+                hasContent,
+              },
+            );
+
             if (hasContent && hasShadowRoot) {
-              console.log("[StripoEditorCustomized] ===== EDITOR RENDERED SUCCESSFULLY =====", {
-                timestamp: new Date().toISOString(),
-                checks: renderCheckCount,
-              });
-              
+              console.log(
+                "[StripoEditorCustomized] ===== EDITOR RENDERED SUCCESSFULLY =====",
+                {
+                  timestamp: new Date().toISOString(),
+                  checks: renderCheckCount,
+                },
+              );
+
               // Apply positioning to blocks panel parent container
               const applyPositioning = (width?: number) => {
                 try {
                   // Get container width if not provided
-                  const containerWidth = width ?? containerRef.current?.getBoundingClientRect().width ?? 0;
-                  
+                  const containerWidth =
+                    width ??
+                    containerRef.current?.getBoundingClientRect().width ??
+                    0;
+
                   const uiEditor = container.querySelector("ui-editor");
                   if (uiEditor?.shadowRoot) {
                     // Find ue-blocks-panel-component and walk up to find ue-ui-simple-panel
-                    const blocksPanel = uiEditor.shadowRoot.querySelector("ue-blocks-panel-component");
+                    const blocksPanel = uiEditor.shadowRoot.querySelector(
+                      "ue-blocks-panel-component",
+                    );
                     if (blocksPanel) {
-                      console.log("[StripoEditorCustomized] Found ue-blocks-panel-component");
-                      
+                      console.log(
+                        "[StripoEditorCustomized] Found ue-blocks-panel-component",
+                      );
+
                       // Walk up the DOM tree to find ue-ui-simple-panel
                       let current: Element | null = blocksPanel.parentElement;
                       let depth = 0;
                       const maxDepth = 10;
                       let simplePanel: HTMLElement | null = null;
-                      
+
                       while (current && depth < maxDepth) {
                         const tagName = current.tagName.toLowerCase();
                         const className = current.className || "";
-                        
-                        console.log(`[StripoEditorCustomized] Walking up DOM tree (depth ${depth}):`, {
-                          tagName,
-                          className: typeof className === "string" ? className : Array.from(className).join(" "),
-                        });
-                        
+
+                        console.log(
+                          `[StripoEditorCustomized] Walking up DOM tree (depth ${depth}):`,
+                          {
+                            tagName,
+                            className:
+                              typeof className === "string"
+                                ? className
+                                : Array.from(className).join(" "),
+                          },
+                        );
+
                         // Look for ue-ui-simple-panel
                         if (tagName === "ue-ui-simple-panel") {
                           simplePanel = current as HTMLElement;
-                          console.log(`[StripoEditorCustomized] Found ue-ui-simple-panel at depth ${depth}`);
+                          console.log(
+                            `[StripoEditorCustomized] Found ue-ui-simple-panel at depth ${depth}`,
+                          );
                           break; // Found the target, stop walking
                         }
-                        
+
                         current = current.parentElement;
                         depth++;
                       }
-                      
+
                       // Apply transform and width to ue-ui-simple-panel (always applied)
                       if (simplePanel) {
-                        simplePanel.style.setProperty("transform", "translateX(10px)", "important");
-                        simplePanel.style.setProperty("width", "100px", "important");
-                        
+                        simplePanel.style.setProperty(
+                          "transform",
+                          "translateX(10px)",
+                          "important",
+                        );
+                        simplePanel.style.setProperty(
+                          "width",
+                          "100px",
+                          "important",
+                        );
+
                         // Apply pink background conditionally based on width
                         if (containerWidth > 1200) {
-                          simplePanel.style.setProperty("background-color", "pink", "important");
-                          console.log("[StripoEditorCustomized] Applied pink background (width > 1200px)", {
-                            containerWidth,
-                            tagName: simplePanel.tagName,
-                          });
+                          simplePanel.style.setProperty(
+                            "background-color",
+                            "pink",
+                            "important",
+                          );
+                          console.log(
+                            "[StripoEditorCustomized] Applied pink background (width > 1200px)",
+                            {
+                              containerWidth,
+                              tagName: simplePanel.tagName,
+                            },
+                          );
                         } else {
                           simplePanel.style.removeProperty("background-color");
                         }
-                        
-                        console.log("[StripoEditorCustomized] Applied transform and width to ue-ui-simple-panel (10px right, 100px wide)", {
-                          tagName: simplePanel.tagName,
-                          className: simplePanel.className,
-                          containerWidth,
-                          computedTransform: window.getComputedStyle(simplePanel).transform,
-                          computedWidth: window.getComputedStyle(simplePanel).width,
-                          hasPinkBackground: containerWidth > 1200,
-                        });
+
+                        console.log(
+                          "[StripoEditorCustomized] Applied transform and width to ue-ui-simple-panel (10px right, 100px wide)",
+                          {
+                            tagName: simplePanel.tagName,
+                            className: simplePanel.className,
+                            containerWidth,
+                            computedTransform:
+                              window.getComputedStyle(simplePanel).transform,
+                            computedWidth:
+                              window.getComputedStyle(simplePanel).width,
+                            hasPinkBackground: containerWidth > 1200,
+                          },
+                        );
                       } else {
-                        console.warn("[StripoEditorCustomized] ue-ui-simple-panel not found, applying to immediate parent");
+                        console.warn(
+                          "[StripoEditorCustomized] ue-ui-simple-panel not found, applying to immediate parent",
+                        );
                         // Fallback: apply to immediate parent
                         if (blocksPanel.parentElement) {
-                          const parentElement = blocksPanel.parentElement as HTMLElement;
-                          parentElement.style.setProperty("transform", "translateX(10px)", "important");
+                          const parentElement =
+                            blocksPanel.parentElement as HTMLElement;
+                          parentElement.style.setProperty(
+                            "transform",
+                            "translateX(10px)",
+                            "important",
+                          );
                           if (containerWidth > 1200) {
-                            parentElement.style.setProperty("background-color", "pink", "important");
+                            parentElement.style.setProperty(
+                              "background-color",
+                              "pink",
+                              "important",
+                            );
                           } else {
-                            parentElement.style.removeProperty("background-color");
+                            parentElement.style.removeProperty(
+                              "background-color",
+                            );
                           }
                         }
                       }
                     } else {
-                      console.warn("[StripoEditorCustomized] ue-blocks-panel-component not found");
+                      console.warn(
+                        "[StripoEditorCustomized] ue-blocks-panel-component not found",
+                      );
                     }
                   }
                 } catch (error) {
-                  console.warn("[StripoEditorCustomized] Failed to apply positioning:", error);
+                  console.warn(
+                    "[StripoEditorCustomized] Failed to apply positioning:",
+                    error,
+                  );
                 }
               };
-              
+
               // Apply immediately with current width
               applyPositioning();
-              
+
               // Set up ResizeObserver to track container width changes
-              if (containerRef.current && typeof ResizeObserver !== "undefined") {
+              if (
+                containerRef.current &&
+                typeof ResizeObserver !== "undefined"
+              ) {
                 // Clean up existing observer if any
                 if (resizeObserverRef.current) {
                   resizeObserverRef.current.disconnect();
                 }
-                
+
                 resizeObserverRef.current = new ResizeObserver((entries) => {
                   const width = entries[0]?.contentRect.width ?? 0;
-                  console.log("[StripoEditorCustomized] Container width changed:", width);
+                  console.log(
+                    "[StripoEditorCustomized] Container width changed:",
+                    width,
+                  );
                   applyPositioning(width);
                 });
-                
+
                 resizeObserverRef.current.observe(containerRef.current);
-                console.log("[StripoEditorCustomized] ResizeObserver set up to track container width");
+                console.log(
+                  "[StripoEditorCustomized] ResizeObserver set up to track container width",
+                );
               } else if (typeof ResizeObserver === "undefined") {
-                console.warn("[StripoEditorCustomized] ResizeObserver not available, using window resize fallback");
+                console.warn(
+                  "[StripoEditorCustomized] ResizeObserver not available, using window resize fallback",
+                );
                 // Fallback to window resize event
                 const handleResize = () => {
-                  const width = containerRef.current?.getBoundingClientRect().width ?? 0;
+                  const width =
+                    containerRef.current?.getBoundingClientRect().width ?? 0;
                   applyPositioning(width);
                 };
                 window.addEventListener("resize", handleResize);
@@ -1001,7 +1034,7 @@ export function StripoEditorCustomized({
                   }
                 };
               }
-              
+
               // Also set up MutationObserver to catch elements when they appear
               try {
                 const uiEditor = container.querySelector("ui-editor");
@@ -1017,29 +1050,40 @@ export function StripoEditorCustomized({
                   setTimeout(() => observer.disconnect(), 10000);
                 }
               } catch (error) {
-                console.warn("[StripoEditorCustomized] Failed to set up MutationObserver:", error);
+                console.warn(
+                  "[StripoEditorCustomized] Failed to set up MutationObserver:",
+                  error,
+                );
               }
-              
+
               clearInterval(renderCheckInterval);
               setLoadingState("loaded");
-              console.log("[StripoEditorCustomized] ===== LOADING STATE SET TO 'loaded' =====", {
-                timestamp: new Date().toISOString(),
-              });
+              console.log(
+                "[StripoEditorCustomized] ===== LOADING STATE SET TO 'loaded' =====",
+                {
+                  timestamp: new Date().toISOString(),
+                },
+              );
             } else if (renderCheckCount >= maxRenderChecks) {
-              console.warn("[StripoEditorCustomized] ===== EDITOR DID NOT RENDER AFTER TIMEOUT =====", {
-                timestamp: new Date().toISOString(),
-                checks: renderCheckCount,
-                hasContainer: !!container,
-                hasUIEditor: !!uiEditor,
-                containerChildren: container?.children.length || 0,
-                note: "Editor may have failed to render due to 403 error on plugin config endpoint",
-              });
+              console.warn(
+                "[StripoEditorCustomized] ===== EDITOR DID NOT RENDER AFTER TIMEOUT =====",
+                {
+                  timestamp: new Date().toISOString(),
+                  checks: renderCheckCount,
+                  hasContainer: !!container,
+                  hasUIEditor: !!uiEditor,
+                  containerChildren: container?.children.length || 0,
+                  note: "Editor may have failed to render due to 403 error on plugin config endpoint",
+                },
+              );
               clearInterval(renderCheckInterval);
               // Set to loaded anyway - user can see the error if editor didn't render
               setLoadingState("loaded");
             }
           } else {
-            console.warn(`[StripoEditorCustomized] Container not available on render check #${renderCheckCount}`);
+            console.warn(
+              `[StripoEditorCustomized] Container not available on render check #${renderCheckCount}`,
+            );
             if (renderCheckCount >= maxRenderChecks) {
               clearInterval(renderCheckInterval);
               setLoadingState("loaded");
@@ -1529,10 +1573,6 @@ export function StripoEditorCustomized({
       );
       window.removeEventListener("error", handleError);
 
-      if (zoneCheckIntervalRef.current) {
-        clearInterval(zoneCheckIntervalRef.current);
-        zoneCheckIntervalRef.current = null;
-      }
       if (uiEditorCheckIntervalRef.current) {
         clearInterval(uiEditorCheckIntervalRef.current);
         uiEditorCheckIntervalRef.current = null;

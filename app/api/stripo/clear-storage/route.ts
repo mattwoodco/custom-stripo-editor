@@ -5,7 +5,7 @@ export async function POST(request: NextRequest) {
     let body: { storageKey?: string; clearAll?: boolean } = {};
     try {
       body = await request.json().catch(() => ({}));
-    } catch (parseError) {
+    } catch (_parseError) {
       // Body is optional, continue with empty object
       body = {};
     }
@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[API] Error in clear-storage route:", error);
     const errorMessage =
-      error instanceof Error ? error.message : "Failed to process clear storage request";
+      error instanceof Error
+        ? error.message
+        : "Failed to process clear storage request";
     return NextResponse.json(
       { error: errorMessage },
       {
@@ -50,4 +52,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

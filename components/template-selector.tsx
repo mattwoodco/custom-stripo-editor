@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { fetchStripoTemplates, type StripoTemplate } from "@/lib/stripo-templates";
+import {
+  fetchStripoTemplates,
+  type StripoTemplate,
+} from "@/lib/stripo-templates";
 
 interface TemplateSelectorProps {
   onTemplateSelect?: (template: StripoTemplate | null) => void;
@@ -15,7 +18,9 @@ export function TemplateSelector({
   const [templates, setTemplates] = useState<StripoTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string>(selectedTemplateId || "");
+  const [selectedId, setSelectedId] = useState<string>(
+    selectedTemplateId || "",
+  );
 
   useEffect(() => {
     async function loadTemplates() {
@@ -25,14 +30,19 @@ export function TemplateSelector({
       try {
         const result = await fetchStripoTemplates();
         setTemplates(result.templates);
-        
+
         if (result.error) {
           setError(result.error);
-          console.warn("[TemplateSelector] Using fallback templates:", result.error);
+          console.warn(
+            "[TemplateSelector] Using fallback templates:",
+            result.error,
+          );
         }
       } catch (err) {
         console.error("[TemplateSelector] Error loading templates:", err);
-        setError(err instanceof Error ? err.message : "Failed to load templates");
+        setError(
+          err instanceof Error ? err.message : "Failed to load templates",
+        );
       } finally {
         setLoading(false);
       }
@@ -63,7 +73,10 @@ export function TemplateSelector({
   if (loading) {
     return (
       <div className="flex items-center gap-2">
-        <label htmlFor="template-select" className="text-sm font-medium text-gray-700">
+        <label
+          htmlFor="template-select"
+          className="text-sm font-medium text-gray-700"
+        >
           Template:
         </label>
         <div className="flex items-center gap-2">
@@ -77,7 +90,10 @@ export function TemplateSelector({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
-        <label htmlFor="template-select" className="text-sm font-medium text-gray-700">
+        <label
+          htmlFor="template-select"
+          className="text-sm font-medium text-gray-700"
+        >
           Stripo Default Templates:
         </label>
         <select
@@ -102,10 +118,11 @@ export function TemplateSelector({
       )}
       {selectedId && (
         <p className="text-xs text-gray-500">
-          Selected: {templates.find((t) => t.templateId === selectedId)?.name || selectedId}
+          Selected:{" "}
+          {templates.find((t) => t.templateId === selectedId)?.name ||
+            selectedId}
         </p>
       )}
     </div>
   );
 }
-

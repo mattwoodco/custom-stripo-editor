@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
     const {
-      name = "Hello World Template",
-      subject = "Hello World",
-      html,
+      name: _name = "Hello World Template",
+      subject: _subject = "Hello World",
+      html: _html,
     } = body;
 
     // Use same env var pattern as token route for consistency

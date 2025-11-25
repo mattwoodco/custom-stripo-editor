@@ -62,7 +62,8 @@ export async function GET(request: NextRequest) {
     // According to Stripo docs, "API" role may be needed for plugin config endpoint
     // For now, use "user" as default (works for editor initialization)
     // If plugin config endpoint still fails with 403, try "API" role
-    const role = (request.nextUrl.searchParams.get("role") as "user" | "API") || "user";
+    const role =
+      (request.nextUrl.searchParams.get("role") as "user" | "API") || "user";
 
     // Check if pluginId is a JWT token (common mistake - env var might contain JWT instead of pluginId)
     let pluginIdToUse = apiKey;

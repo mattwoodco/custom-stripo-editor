@@ -8,8 +8,7 @@ async function getStripoToken(): Promise<string> {
     process.env.NEXT_PUBLIC_STRIPO_API_KEY ||
     process.env.STRIPO_API_KEY;
   const secretKey =
-    process.env.STRIPO_SECRET_KEY ||
-    process.env.NEXT_PUBLIC_STRIPO_SECRET_KEY;
+    process.env.STRIPO_SECRET_KEY || process.env.NEXT_PUBLIC_STRIPO_SECRET_KEY;
 
   if (!apiKey || !secretKey) {
     throw new Error("Stripo API credentials not configured");
@@ -57,7 +56,9 @@ async function getStripoToken(): Promise<string> {
   });
 
   if (!response.ok) {
-    const errorText = await response.text().catch(() => `HTTP ${response.status}`);
+    const errorText = await response
+      .text()
+      .catch(() => `HTTP ${response.status}`);
     throw new Error(`Failed to authenticate with Stripo: ${errorText}`);
   }
 
@@ -87,7 +88,10 @@ export async function GET(
     // Check if templateId is numeric (fallback templates use string IDs)
     const isNumericId = /^\d+$/.test(templateId);
     if (!isNumericId) {
-      console.log("[API] Non-numeric template ID detected (likely fallback template):", { templateId });
+      console.log(
+        "[API] Non-numeric template ID detected (likely fallback template):",
+        { templateId },
+      );
       return NextResponse.json(
         {
           error: "Invalid template ID format",
@@ -139,7 +143,9 @@ export async function GET(
     });
 
     if (!response.ok) {
-      const errorText = await response.text().catch(() => `HTTP ${response.status}`);
+      const errorText = await response
+        .text()
+        .catch(() => `HTTP ${response.status}`);
       let error;
       try {
         error = JSON.parse(errorText);
@@ -203,4 +209,3 @@ export async function GET(
     );
   }
 }
-
