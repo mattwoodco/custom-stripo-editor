@@ -279,6 +279,7 @@ export function StripoEditorCustomized({
     typeof setInterval
   > | null>(null);
   const tokenRef = useRef<string | null>(null); // Cache token for synchronous access
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
     // Add global error handler for Stripo API errors with graceful degradation
@@ -881,8 +882,11 @@ export function StripoEditorCustomized({
               });
               
               // Apply positioning to blocks panel parent container
-              const applyPositioning = () => {
+              const applyPositioning = (width?: number) => {
                 try {
+                  // Get container width if not provided
+                  const containerWidth = width ?? containerRef.current?.getBoundingClientRect().width ?? 0;
+                  
                   const uiEditor = container.querySelector("ui-editor");
                   if (uiEditor?.shadowRoot) {
                     // Find ue-blocks-panel-component and walk up to find ue-ui-simple-panel
@@ -916,21 +920,41 @@ export function StripoEditorCustomized({
                         depth++;
                       }
                       
-                      // Apply transform and width to ue-ui-simple-panel
+                      // Apply transform and width to ue-ui-simple-panel (always applied)
                       if (simplePanel) {
                         simplePanel.style.setProperty("transform", "translateX(10px)", "important");
                         simplePanel.style.setProperty("width", "100px", "important");
+                        
+                        // Apply pink background conditionally based on width
+                        if (containerWidth > 1200) {
+                          simplePanel.style.setProperty("background-color", "pink", "important");
+                          console.log("[StripoEditorCustomized] Applied pink background (width > 1200px)", {
+                            containerWidth,
+                            tagName: simplePanel.tagName,
+                          });
+                        } else {
+                          simplePanel.style.removeProperty("background-color");
+                        }
+                        
                         console.log("[StripoEditorCustomized] Applied transform and width to ue-ui-simple-panel (10px right, 100px wide)", {
                           tagName: simplePanel.tagName,
                           className: simplePanel.className,
+                          containerWidth,
                           computedTransform: window.getComputedStyle(simplePanel).transform,
                           computedWidth: window.getComputedStyle(simplePanel).width,
+                          hasPinkBackground: containerWidth > 1200,
                         });
                       } else {
                         console.warn("[StripoEditorCustomized] ue-ui-simple-panel not found, applying to immediate parent");
                         // Fallback: apply to immediate parent
                         if (blocksPanel.parentElement) {
-                          (blocksPanel.parentElement as HTMLElement).style.setProperty("transform", "translateX(10px)", "important");
+                          const parentElement = blocksPanel.parentElement as HTMLElement;
+                          parentElement.style.setProperty("transform", "translateX(10px)", "important");
+                          if (containerWidth > 1200) {
+                            parentElement.style.setProperty("background-color", "pink", "important");
+                          } else {
+                            parentElement.style.removeProperty("background-color");
+                          }
                         }
                       }
                     } else {
@@ -942,8 +966,41 @@ export function StripoEditorCustomized({
                 }
               };
               
-              // Apply immediately
+              // Apply immediately with current width
               applyPositioning();
+              
+              // Set up ResizeObserver to track container width changes
+              if (containerRef.current && typeof ResizeObserver !== "undefined") {
+                // Clean up existing observer if any
+                if (resizeObserverRef.current) {
+                  resizeObserverRef.current.disconnect();
+                }
+                
+                resizeObserverRef.current = new ResizeObserver((entries) => {
+                  const width = entries[0]?.contentRect.width ?? 0;
+                  console.log("[StripoEditorCustomized] Container width changed:", width);
+                  applyPositioning(width);
+                });
+                
+                resizeObserverRef.current.observe(containerRef.current);
+                console.log("[StripoEditorCustomized] ResizeObserver set up to track container width");
+              } else if (typeof ResizeObserver === "undefined") {
+                console.warn("[StripoEditorCustomized] ResizeObserver not available, using window resize fallback");
+                // Fallback to window resize event
+                const handleResize = () => {
+                  const width = containerRef.current?.getBoundingClientRect().width ?? 0;
+                  applyPositioning(width);
+                };
+                window.addEventListener("resize", handleResize);
+                // Store cleanup function (preserve existing cleanup if any)
+                const existingCleanup = cleanupRef.current;
+                cleanupRef.current = () => {
+                  window.removeEventListener("resize", handleResize);
+                  if (existingCleanup) {
+                    existingCleanup();
+                  }
+                };
+              }
               
               // Also set up MutationObserver to catch elements when they appear
               try {
@@ -1484,6 +1541,12 @@ export function StripoEditorCustomized({
       if (cleanupRef.current) {
         cleanupRef.current();
         cleanupRef.current = null;
+      }
+
+      // Clean up ResizeObserver
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
       }
 
       if (containerRef.current) {

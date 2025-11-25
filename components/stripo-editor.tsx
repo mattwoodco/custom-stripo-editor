@@ -154,6 +154,7 @@ export function StripoEditor({
     typeof setInterval
   > | null>(null);
   const tokenRef = useRef<string | null>(null); // Cache token for synchronous access
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
 
   // Log props changes for debugging
   useEffect(() => {
@@ -1132,6 +1133,12 @@ export function StripoEditor({
       if (cleanupRef.current) {
         cleanupRef.current();
         cleanupRef.current = null;
+      }
+
+      // Clean up ResizeObserver
+      if (resizeObserverRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
       }
 
       // Clear container to prevent shadow DOM conflicts
