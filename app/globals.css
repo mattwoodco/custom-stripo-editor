@@ -116,56 +116,10 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply h-dvh overscroll-none;
+  }
   body {
     @apply bg-background text-foreground;
-  }
-
-  /* Ensure Stripo UI-EDITOR custom element is visible */
-  ui-editor {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 600px !important;
-    position: relative !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 1 !important;
-  }
-
-  #stripo-editor-container {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 600px !important;
-    position: relative !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 1 !important;
-    overflow: visible !important;
-  }
-
-  #stripo-editor-container ui-editor {
-    display: block !important;
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 600px !important;
-    position: relative !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-  }
-
-  /* Ensure Stripo editor content is visible */
-  #stripo-editor-container * {
-    visibility: visible !important;
-  }
-
-  /* Fix for Stripo editor iframe or shadow DOM */
-  #stripo-editor-container iframe {
-    width: 100% !important;
-    height: 100% !important;
-    min-height: 600px !important;
-    border: none !important;
-    display: block !important;
-    visibility: visible !important;
   }
 }

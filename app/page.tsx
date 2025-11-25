@@ -1,19 +1,14 @@
 "use client";
 
 import { Container } from "@/components/container";
-import { StripoEditor } from "@/components/stripo-editor";
+import { StripoEditorCustomized } from "@/components/stripo-editor-customized";
 
 export default function Home() {
   return (
     <Container>
       <div className="flex flex-col gap-4">
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold mb-2">Stripo Email Editor</h1>
-          <p className="text-gray-600">
-            Creating a new "Hello World" email template...
-          </p>
-        </div>
-        <StripoEditor createHelloWorldTemplate={true} />
+        <h1 className="font-bold">Custom Stripo Email Editor</h1>
+        <StripoEditorCustomized createHelloWorldTemplate={true} />
       </div>
     </Container>
   );
