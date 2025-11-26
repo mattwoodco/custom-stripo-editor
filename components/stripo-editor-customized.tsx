@@ -237,7 +237,9 @@ export function StripoEditorCustomized({
   const [loadingState, setLoadingState] = useState<LoadingState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [isNarrowPanelVisible, setIsNarrowPanelVisible] = useState(true);
+  const [isModulesPanelVisible, setIsModulesPanelVisible] = useState(true);
+  const [isSimplePanelVisible, setIsSimplePanelVisible] = useState(true);
+  const [isWidePanelVisible, setIsWidePanelVisible] = useState(true);
   const cleanupRef = useRef<(() => void) | null>(null);
   const uiEditorCheckIntervalRef = useRef<ReturnType<
     typeof setInterval
@@ -864,6 +866,32 @@ export function StripoEditorCustomized({
 
                   const uiEditor = container.querySelector("ui-editor");
                   if (uiEditor?.shadowRoot) {
+                    // Remove min-width from ui-editor on mobile and tablet
+                    if (containerWidth <= 1200) {
+                      // Mobile/Tablet: remove min-width
+                      (uiEditor as HTMLElement).style.setProperty(
+                        "min-width",
+                        "0",
+                        "important",
+                      );
+                      console.log(
+                        "[StripoEditorCustomized] Removed min-width from ui-editor (mobile/tablet: width <= 1200px)",
+                        {
+                          containerWidth,
+                          minWidth: "0",
+                        },
+                      );
+                    } else {
+                      // Desktop: restore default min-width (remove override)
+                      (uiEditor as HTMLElement).style.removeProperty("min-width");
+                      console.log(
+                        "[StripoEditorCustomized] Restored default min-width for ui-editor (desktop: width > 1200px)",
+                        {
+                          containerWidth,
+                        },
+                      );
+                    }
+
                     // Helper function to apply responsive styling to an element
                     const applyResponsiveStyling = (
                       element: HTMLElement,
@@ -966,6 +994,22 @@ export function StripoEditorCustomized({
                           simplePanel,
                           "ue-ui-simple-panel",
                         );
+                        // Initialize visibility based on container width
+                        if (containerWidth <= 1200) {
+                          // Mobile: hide panel
+                          simplePanel.style.setProperty("display", "none", "important");
+                          setIsSimplePanelVisible(false);
+                          console.log(
+                            "[StripoEditorCustomized] Simple panel initialized to hidden (mobile)",
+                          );
+                        } else {
+                          // Desktop: show panel (remove any display property)
+                          simplePanel.style.removeProperty("display");
+                          setIsSimplePanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Simple panel initialized to visible (desktop)",
+                          );
+                        }
                       } else {
                         console.warn(
                           "[StripoEditorCustomized] ue-ui-simple-panel not found, applying to immediate parent",
@@ -1003,9 +1047,52 @@ export function StripoEditorCustomized({
                         modulesPanel,
                         "ue-modules-panel-component",
                       );
+                      // Initialize visibility based on container width
+                      if (containerWidth <= 1200) {
+                        // Mobile: hide panel
+                        modulesPanel.style.setProperty("display", "none", "important");
+                        setIsModulesPanelVisible(false);
+                        console.log(
+                          "[StripoEditorCustomized] Modules panel initialized to hidden (mobile)",
+                        );
+                      } else {
+                        // Desktop: show panel (remove any display property)
+                        modulesPanel.style.removeProperty("display");
+                        setIsModulesPanelVisible(true);
+                        console.log(
+                          "[StripoEditorCustomized] Modules panel initialized to visible (desktop)",
+                        );
+                      }
                     } else {
                       console.warn(
                         "[StripoEditorCustomized] ue-modules-panel-component not found",
+                      );
+                    }
+
+                    // Find and initialize ue-wide-panel visibility based on container width
+                    const widePanel = uiEditor.shadowRoot.querySelector(
+                      "ue-wide-panel",
+                    ) as HTMLElement | null;
+                    if (widePanel) {
+                      // Initialize visibility based on container width
+                      if (containerWidth <= 1200) {
+                        // Mobile: hide panel
+                        widePanel.style.setProperty("display", "none", "important");
+                        setIsWidePanelVisible(false);
+                        console.log(
+                          "[StripoEditorCustomized] Wide panel initialized to hidden (mobile)",
+                        );
+                      } else {
+                        // Desktop: show panel (remove any display property)
+                        widePanel.style.removeProperty("display");
+                        setIsWidePanelVisible(true);
+                        console.log(
+                          "[StripoEditorCustomized] Wide panel initialized to visible (desktop)",
+                        );
+                      }
+                    } else {
+                      console.warn(
+                        "[StripoEditorCustomized] ue-wide-panel not found",
                       );
                     }
 
@@ -1207,20 +1294,45 @@ export function StripoEditorCustomized({
                   previousMobileRef.current = mobile;
                   setIsMobile(mobile);
 
-                  // When switching from mobile to desktop, restore panel visibility
+                  // When switching from mobile to desktop, restore all panels
                   if (wasMobile && !mobile) {
                     const container = containerRef.current;
                     if (container) {
                       const uiEditor = container.querySelector("ui-editor");
                       if (uiEditor?.shadowRoot) {
-                        const narrowPanel = uiEditor.shadowRoot.querySelector(
-                          "ue-narrow-panel",
+                        // Restore modules panel
+                        const modulesPanel = uiEditor.shadowRoot.querySelector(
+                          "ue-modules-panel-component",
                         ) as HTMLElement | null;
-                        if (narrowPanel) {
-                          narrowPanel.style.removeProperty("display");
-                          setIsNarrowPanelVisible(true);
+                        if (modulesPanel) {
+                          modulesPanel.style.removeProperty("display");
+                          setIsModulesPanelVisible(true);
                           console.log(
-                            "[StripoEditorCustomized] Restored narrow panel visibility when switching to desktop",
+                            "[StripoEditorCustomized] Restored modules panel when switching to desktop",
+                          );
+                        }
+
+                        // Restore simple panel
+                        const simplePanel = uiEditor.shadowRoot.querySelector(
+                          "ue-ui-simple-panel",
+                        ) as HTMLElement | null;
+                        if (simplePanel) {
+                          simplePanel.style.removeProperty("display");
+                          setIsSimplePanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored simple panel when switching to desktop",
+                          );
+                        }
+
+                        // Restore wide panel
+                        const widePanel = uiEditor.shadowRoot.querySelector(
+                          "ue-wide-panel",
+                        ) as HTMLElement | null;
+                        if (widePanel) {
+                          widePanel.style.removeProperty("display");
+                          setIsWidePanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored wide panel when switching to desktop",
                           );
                         }
                       }
@@ -1247,20 +1359,45 @@ export function StripoEditorCustomized({
                   previousMobileRef.current = mobile;
                   setIsMobile(mobile);
 
-                  // When switching from mobile to desktop, restore panel visibility
+                  // When switching from mobile to desktop, restore all panels
                   if (wasMobile && !mobile) {
                     const container = containerRef.current;
                     if (container) {
                       const uiEditor = container.querySelector("ui-editor");
                       if (uiEditor?.shadowRoot) {
-                        const narrowPanel = uiEditor.shadowRoot.querySelector(
-                          "ue-narrow-panel",
+                        // Restore modules panel
+                        const modulesPanel = uiEditor.shadowRoot.querySelector(
+                          "ue-modules-panel-component",
                         ) as HTMLElement | null;
-                        if (narrowPanel) {
-                          narrowPanel.style.removeProperty("display");
-                          setIsNarrowPanelVisible(true);
+                        if (modulesPanel) {
+                          modulesPanel.style.removeProperty("display");
+                          setIsModulesPanelVisible(true);
                           console.log(
-                            "[StripoEditorCustomized] Restored narrow panel visibility when switching to desktop (window resize fallback)",
+                            "[StripoEditorCustomized] Restored modules panel when switching to desktop (window resize fallback)",
+                          );
+                        }
+
+                        // Restore simple panel
+                        const simplePanel = uiEditor.shadowRoot.querySelector(
+                          "ue-ui-simple-panel",
+                        ) as HTMLElement | null;
+                        if (simplePanel) {
+                          simplePanel.style.removeProperty("display");
+                          setIsSimplePanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored simple panel when switching to desktop (window resize fallback)",
+                          );
+                        }
+
+                        // Restore wide panel
+                        const widePanel = uiEditor.shadowRoot.querySelector(
+                          "ue-wide-panel",
+                        ) as HTMLElement | null;
+                        if (widePanel) {
+                          widePanel.style.removeProperty("display");
+                          setIsWidePanelVisible(true);
+                          console.log(
+                            "[StripoEditorCustomized] Restored wide panel when switching to desktop (window resize fallback)",
                           );
                         }
                       }
@@ -1859,44 +1996,128 @@ export function StripoEditorCustomized({
     }
   }, []);
 
-  // Toggle function for narrow panel visibility
-  const toggleNarrowPanel = () => {
+  // Toggle function for modules panel visibility
+  const toggleModulesPanel = () => {
     const container = containerRef.current;
     if (!container) return;
 
     const uiEditor = container.querySelector("ui-editor");
     if (!uiEditor?.shadowRoot) {
       console.warn(
-        "[StripoEditorCustomized] Cannot toggle narrow panel: ui-editor or shadowRoot not found",
+        "[StripoEditorCustomized] Cannot toggle modules panel: ui-editor or shadowRoot not found",
       );
       return;
     }
 
-    const narrowPanel = uiEditor.shadowRoot.querySelector(
-      "ue-narrow-panel",
+    const modulesPanel = uiEditor.shadowRoot.querySelector(
+      "ue-modules-panel-component",
     ) as HTMLElement | null;
 
-    if (!narrowPanel) {
+    if (!modulesPanel) {
       console.warn(
-        "[StripoEditorCustomized] Cannot toggle narrow panel: ue-narrow-panel not found",
+        "[StripoEditorCustomized] Cannot toggle modules panel: ue-modules-panel-component not found",
       );
       return;
     }
 
-    const newVisibility = !isNarrowPanelVisible;
-    setIsNarrowPanelVisible(newVisibility);
+    const newVisibility = !isModulesPanelVisible;
+    setIsModulesPanelVisible(newVisibility);
 
     if (newVisibility) {
       // Show the panel - remove display property to restore default
-      narrowPanel.style.removeProperty("display");
+      modulesPanel.style.removeProperty("display");
       console.log(
-        "[StripoEditorCustomized] Narrow panel shown (display property removed)",
+        "[StripoEditorCustomized] Modules panel shown (display property removed)",
       );
     } else {
       // Hide the panel
-      narrowPanel.style.setProperty("display", "none", "important");
+      modulesPanel.style.setProperty("display", "none", "important");
       console.log(
-        "[StripoEditorCustomized] Narrow panel hidden (display: none)",
+        "[StripoEditorCustomized] Modules panel hidden (display: none)",
+      );
+    }
+  };
+
+  // Toggle function for simple panel visibility
+  const toggleSimplePanel = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const uiEditor = container.querySelector("ui-editor");
+    if (!uiEditor?.shadowRoot) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle simple panel: ui-editor or shadowRoot not found",
+      );
+      return;
+    }
+
+    const simplePanel = uiEditor.shadowRoot.querySelector(
+      "ue-ui-simple-panel",
+    ) as HTMLElement | null;
+
+    if (!simplePanel) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle simple panel: ue-ui-simple-panel not found",
+      );
+      return;
+    }
+
+    const newVisibility = !isSimplePanelVisible;
+    setIsSimplePanelVisible(newVisibility);
+
+    if (newVisibility) {
+      // Show the panel - remove display property to restore default
+      simplePanel.style.removeProperty("display");
+      console.log(
+        "[StripoEditorCustomized] Simple panel shown (display property removed)",
+      );
+    } else {
+      // Hide the panel
+      simplePanel.style.setProperty("display", "none", "important");
+      console.log(
+        "[StripoEditorCustomized] Simple panel hidden (display: none)",
+      );
+    }
+  };
+
+  // Toggle function for wide panel visibility
+  const toggleWidePanel = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const uiEditor = container.querySelector("ui-editor");
+    if (!uiEditor?.shadowRoot) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle wide panel: ui-editor or shadowRoot not found",
+      );
+      return;
+    }
+
+    const widePanel = uiEditor.shadowRoot.querySelector(
+      "ue-wide-panel",
+    ) as HTMLElement | null;
+
+    if (!widePanel) {
+      console.warn(
+        "[StripoEditorCustomized] Cannot toggle wide panel: ue-wide-panel not found",
+      );
+      return;
+    }
+
+    const newVisibility = !isWidePanelVisible;
+    setIsWidePanelVisible(newVisibility);
+
+    if (newVisibility) {
+      // Show the panel - remove display property to restore default
+      widePanel.style.removeProperty("display");
+      console.log(
+        "[StripoEditorCustomized] Wide panel shown (display property removed)",
+      );
+    } else {
+      // Hide the panel
+      widePanel.style.setProperty("display", "none", "important");
+      console.log(
+        "[StripoEditorCustomized] Wide panel hidden (display: none)",
       );
     }
   };
@@ -1905,37 +2126,59 @@ export function StripoEditorCustomized({
     <div className="w-full h-[600px] relative" style={{ minHeight: "600px" }}>
       <div className="absolute top-2 right-2 z-20 flex gap-2">
         {isMobile && (
-          <button
-            type="button"
-            onClick={toggleNarrowPanel}
-            className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center"
-            title={
-              isNarrowPanelVisible
-                ? "Hide narrow panel"
-                : "Show narrow panel"
-            }
-            aria-label={
-              isNarrowPanelVisible
-                ? "Hide narrow panel"
-                : "Show narrow panel"
-            }
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          <>
+            <button
+              type="button"
+              onClick={toggleModulesPanel}
+              className="px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 flex items-center justify-center text-xs"
+              title={
+                isModulesPanelVisible
+                  ? "Hide modules panel"
+                  : "Show modules panel"
+              }
+              aria-label={
+                isModulesPanelVisible
+                  ? "Hide modules panel"
+                  : "Show modules panel"
+              }
             >
-              <circle cx="12" cy="12" r="1" />
-              <circle cx="19" cy="12" r="1" />
-              <circle cx="5" cy="12" r="1" />
-            </svg>
-          </button>
+              Modules
+            </button>
+            <button
+              type="button"
+              onClick={toggleSimplePanel}
+              className="px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 flex items-center justify-center text-xs"
+              title={
+                isSimplePanelVisible
+                  ? "Hide simple panel"
+                  : "Show simple panel"
+              }
+              aria-label={
+                isSimplePanelVisible
+                  ? "Hide simple panel"
+                  : "Show simple panel"
+              }
+            >
+              Simple
+            </button>
+            <button
+              type="button"
+              onClick={toggleWidePanel}
+              className="px-3 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 flex items-center justify-center text-xs"
+              title={
+                isWidePanelVisible
+                  ? "Hide wide panel"
+                  : "Show wide panel"
+              }
+              aria-label={
+                isWidePanelVisible
+                  ? "Hide wide panel"
+                  : "Show wide panel"
+              }
+            >
+              Wide
+            </button>
+          </>
         )}
         {process.env.NODE_ENV === "development" && (
           <button
